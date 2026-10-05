@@ -24,7 +24,7 @@ export const adminOrders = {
   'adminOrders.list.title': 'Orders',
   'adminOrders.list.lookupNoMatch': 'No order matches “{query}”.',
   'adminOrders.list.inventoryExceptionsTitle': {
-    one: '{count} inventory exception need attention',
+    one: '{count} inventory exception needs attention',
     other: '{count} inventory exceptions need attention',
   },
   'adminOrders.list.inventoryExceptionsHelp':
@@ -212,7 +212,7 @@ export const adminOrders = {
   'adminOrders.refunds.providerRefundIdLabel': 'Provider refund ID',
   'adminOrders.refunds.syncTotal': 'Sync total',
   'adminOrders.refunds.syncHelp':
-    'Use this only if a refund you made at the provider never appeared here. Enter the<strong> total refunded so far</strong>, not just the latest amount.',
+    'Use this only if a refund you made at the provider never appeared here. Enter the <strong>total refunded so far</strong>, not just the latest amount.',
 
   // Order actions (api/admin/orders/[id].ts) — flash messages on the order page.
   'adminOrders.api.invalidInventoryException': 'Invalid inventory exception.',

@@ -24,7 +24,7 @@ export const checkout = {
   },
   'checkout.demo.banner': '⚠️ Demo checkout — not a real payment',
   'checkout.demo.noticeCheckout':
-    'No card is charged. Completing it places a real order tagged<code class="rounded bg-amber-100 px-1">demo</code> so you can see the full flow.',
+    'No card is charged. Completing it places a real order tagged <code class="rounded bg-amber-100 px-1">demo</code> so you can see the full flow.',
   'checkout.address.email': 'Email',
   'checkout.address.fullName': 'Full name',
   'checkout.address.line1': 'Address',
@@ -132,7 +132,7 @@ export const checkout = {
 
   // Demo checkout view + settlement
   'checkout.demo.noticePay':
-    'No card is charged. Submitting places a real order tagged<code class="rounded bg-amber-100 px-1">demo</code> so you can see the full flow.',
+    'No card is charged. Submitting places a real order tagged <code class="rounded bg-amber-100 px-1">demo</code> so you can see the full flow.',
   'checkout.demo.shipping': 'Shipping',
   'checkout.demo.total': 'Total',
   'checkout.demo.emailLabel': 'Email for the order confirmation',

@@ -3,7 +3,7 @@ import type { Message } from '../../core';
 // Admin settings, the setup wizard, and the shipping editor. Messages that
 // contain markup are rendered with th() + set:html; their markup is part of
 // the message so the English output stays byte-identical. A few help texts
-// keep a missing space before a tag (`such as<code>`) because the page has
+// keep a missing space before a tag (`such as <code>`) because the page has
 // always rendered them that way.
 export const adminSettings = {
   // ── Shared ────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ export const adminSettings = {
   'adminSettings.general.timeZone': 'Store time zone',
   'adminSettings.general.timeZonePlaceholder': 'Search e.g. America/New_York',
   'adminSettings.general.timeZoneHelp':
-    'The time zone controls stored UTC date display. Use an IANA name such as<code>UTC</code> or <code>America/New_York</code>.',
+    'The time zone controls stored UTC date display. Use an IANA name such as <code>UTC</code> or <code>America/New_York</code>.',
 
   'adminSettings.logo.title': 'Logo',
   'adminSettings.logo.currentAlt': 'Current logo',
@@ -105,7 +105,7 @@ export const adminSettings = {
 
   'adminSettings.shippo.title': 'Shipping labels (Shippo)',
   'adminSettings.shippo.help':
-    'Buy carrier labels from the order page using the recorded address and weight — tracking is filled in and the shipped email sent automatically. A<code class="text-[11px]">shippo_test_…</code> token buys fake labels for trying it out.',
+    'Buy carrier labels from the order page using the recorded address and weight — tracking is filled in and the shipped email sent automatically. A <code class="text-[11px]">shippo_test_…</code> token buys fake labels for trying it out.',
   'adminSettings.shippo.token': 'API token',
   'adminSettings.shippo.tokenHint': 'shippo_live_… or shippo_test_…',
 
@@ -151,7 +151,7 @@ export const adminSettings = {
   'adminSettings.images.purgeNote':
     'Saving purges affected public pages; a 10-minute TTL bounds a transient purge failure.',
   'adminSettings.images.deliveryNote':
-    'This controls delivery. <strong class="font-medium text-gray-500">Optimize images on upload</strong>in General is a separate option that changes newly stored source files.',
+    'This controls delivery. <strong class="font-medium text-gray-500">Optimize images on upload</strong> in General is a separate option that changes newly stored source files.',
 
   // Payments
   'adminSettings.payments.intro':
@@ -226,7 +226,7 @@ export const adminSettings = {
 
   // Bot protection
   'adminSettings.turnstile.intro':
-    'Cloudflare Turnstile challenge on admin login and customer account sign-in. Off by default. Needs a <a href="{href}" class="text-accent underline">Turnstile widget</a>(sitekey + secret). Cloudflare\'s always-pass test keys work for local trials.',
+    'Cloudflare Turnstile challenge on admin login and customer account sign-in. Off by default. Needs a <a href="{href}" class="text-accent underline">Turnstile widget</a> (sitekey + secret). Cloudflare\'s always-pass test keys work for local trials.',
   'adminSettings.turnstile.enable': 'Enable Turnstile',
   'adminSettings.turnstile.needsKeys': 'Add both keys before enabling',
   'adminSettings.turnstile.siteKey': 'Site key (public)',
@@ -264,7 +264,7 @@ export const adminSettings = {
   'adminSettings.buildTime.favicon': 'Favicon',
   'adminSettings.buildTime.faviconAlt': 'Current favicon',
   'adminSettings.buildTime.faviconHelp':
-    'Replace <code>public/favicon.svg</code> and regenerate <code>public/favicon.ico</code>for clients that still request the legacy icon.',
+    'Replace <code>public/favicon.svg</code> and regenerate <code>public/favicon.ico</code> for clients that still request the legacy icon.',
 
   // ── Components ────────────────────────────────────────────────────────────
   'adminSettings.secretField.encrypted': 'Encrypted in D1',
@@ -284,7 +284,7 @@ export const adminSettings = {
     'A few first-run settings — you can change them any time in Settings. This just gets you running.',
   'adminSettings.setup.basics': 'Store basics',
   'adminSettings.setup.currencyNote':
-    'Currency stays a build-time setting (it\'s wired through every price) — set<code class="rounded bg-gray-100 px-1">currency</code> in<code class="rounded bg-gray-100 px-1">src/config.ts</code>. Current: {currency}.',
+    'Currency stays a build-time setting (it\'s wired through every price) — set <code class="rounded bg-gray-100 px-1">currency</code> in <code class="rounded bg-gray-100 px-1">src/config.ts</code>. Current: {currency}.',
   'adminSettings.setup.password': 'Admin password',
   'adminSettings.setup.passwordIntro':
     'Password for <code class="rounded bg-gray-100 px-1">/admin/login</code> — stored hashed (PBKDF2), never plaintext.',
@@ -316,7 +316,7 @@ export const adminSettings = {
   'adminSettings.shipping.tooLarge':
     'That configuration is too large to store. Remove some zones or countries.',
   'adminSettings.shipping.missingWeights': {
-    one: '{count} product ({names}) have no shipping weight and could not be purchased. Set weights or keep a flat rate in every zone.',
+    one: '{count} product ({names}) has no shipping weight and could not be purchased. Set weights or keep a flat rate in every zone.',
     other:
       '{count} products ({names}) have no shipping weight and could not be purchased. Set weights or keep a flat rate in every zone.',
   },

@@ -147,7 +147,7 @@ Write your page in Markdown. Blank lines separate paragraphs.
   'adminContent.navigation.add': 'Add',
   'adminContent.navigation.truncatedPage': 'pages: showing {shown} of {total}',
   'adminContent.navigation.truncatedProduct': 'products: showing {shown} of {total}',
-  'adminContent.navigation.truncatedCategory': 'categorys: showing {shown} of {total}',
+  'adminContent.navigation.truncatedCategory': 'categories: showing {shown} of {total}',
   'adminContent.navigation.truncatedHint': 'Type to filter; press Search all to look beyond that.',
   'adminContent.navigation.headerNote':
     'Up to {max} items — the header also holds your logo, search, and cart.',
