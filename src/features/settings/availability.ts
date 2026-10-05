@@ -1,3 +1,4 @@
+import { enI18n, type I18n } from '../../i18n/core';
 import type { StoreSettings } from './db';
 
 export interface RuntimeCapabilities {
@@ -41,22 +42,24 @@ export function featureAvailability(
   key: string,
   settings: StoreSettings,
   caps: RuntimeCapabilities,
+  i18n: I18n = enI18n,
 ): SettingAvailability {
+  const { t } = i18n;
   if (key === 'discounts_enabled' || key === 'tax_enabled') {
     return stripeConfigured(settings, caps)
       ? { available: true }
-      : { available: false, reason: 'Unavailable until Stripe is configured' };
+      : { available: false, reason: t('adminSettings.availability.stripe') };
   }
   if (key === 'accounts_enabled') {
     if (!caps.authSecret) {
-      return { available: false, reason: 'Unavailable until AUTH_SECRET is set' };
+      return { available: false, reason: t('adminSettings.availability.authSecret') };
     }
     if (!emailConfigured(settings, caps)) {
-      return { available: false, reason: 'Unavailable until email is enabled and configured' };
+      return { available: false, reason: t('adminSettings.availability.email') };
     }
   }
   if (key === 'image_optimize' && !caps.images) {
-    return { available: false, reason: 'Unavailable until the IMAGES binding is added' };
+    return { available: false, reason: t('adminSettings.availability.images') };
   }
   return { available: true };
 }
@@ -69,21 +72,24 @@ export function lightningConfigurationError(
   backend: 'lnbits' | 'phoenixd',
   url: string,
   hasCredential: boolean,
+  i18n: I18n = enI18n,
 ): string | null {
+  const { t } = i18n;
+  // Product names, not translated.
   const label = backend === 'lnbits' ? 'LNbits' : 'phoenixd';
-  if (!url) return `Add the ${label} URL.`;
+  if (!url) return t('adminSettings.lightning.errorAddUrl', { backend: label });
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      return `Enter a valid HTTP(S) URL for ${label}.`;
+      return t('adminSettings.lightning.errorInvalidUrl', { backend: label });
     }
   } catch {
-    return `Enter a valid HTTP(S) URL for ${label}.`;
+    return t('adminSettings.lightning.errorInvalidUrl', { backend: label });
   }
   if (!hasCredential) {
     return backend === 'lnbits'
-      ? 'Add the LNbits invoice/read key.'
-      : 'Add the phoenixd password.';
+      ? t('adminSettings.lightning.errorAddLnbitsKey')
+      : t('adminSettings.lightning.errorAddPhoenixdPassword');
   }
   return null;
 }

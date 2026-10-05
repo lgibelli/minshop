@@ -7,6 +7,7 @@ interface Props {
   label: string;
 }
 const { method, enabled, label } = Astro.props;
+const { t } = Astro.locals.i18n;
 ---
 
 <form method="POST" class="shrink-0">
@@ -17,7 +18,7 @@ const { method, enabled, label } = Astro.props;
     type="submit"
     role="switch"
     aria-checked={enabled ? 'true' : 'false'}
-    aria-label={`${enabled ? 'Disable' : 'Enable'} ${label}`}
+    aria-label={t(enabled ? 'adminSettings.toggle.disable' : 'adminSettings.toggle.enable', { label })}
     class={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
       enabled ? 'bg-brand' : 'bg-faint'
     }`}
