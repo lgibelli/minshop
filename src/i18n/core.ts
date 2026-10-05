@@ -12,10 +12,10 @@
  *   - CLDR plural forms chosen by `params.count` through Intl.PluralRules:
  *     { one: '{count} item', other: '{count} items' } — Polish adds `few`/`many`.
  */
-import { formatMoney } from '../money';
-import { en } from './messages/en';
-import { pl } from './messages/pl';
-import { it } from './messages/it';
+import { formatMoney } from '../money.ts';
+import { en } from './messages/en/index.ts';
+import { pl } from './messages/pl/index.ts';
+import { it } from './messages/it/index.ts';
 
 export type PluralMessage = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
 export type Message = string | PluralMessage;

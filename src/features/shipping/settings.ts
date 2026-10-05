@@ -21,32 +21,14 @@ import {
 import { CATCH_ALL, countryName, isCountryCode } from './countries.ts';
 import { toGrams, type WeightUnit } from './weight.ts';
 import { toMinorUnits } from '../../money.ts';
-import type { I18n, Message, Params } from '../../i18n/core.ts';
-import { adminSettings as englishMessages } from '../../i18n/messages/en/adminSettings.ts';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 /** The part of a translator this module uses: callers pass `Astro.locals.i18n`. */
 export type ShippingTranslator = Pick<I18n, 't'>;
 
-/**
- * English for callers that pass no translator (unit tests, the per-request
- * resolver and its logs). Deliberately not core's `enI18n`: plain-Node scripts
- * (test/integration/shipping.mjs) load this module, and core.ts's extensionless
- * imports do not resolve there. The catalog file itself has only type imports.
- */
-const ENGLISH: ShippingTranslator = {
-  t(key, params?: Params) {
-    const message = (englishMessages as Record<string, Message | undefined>)[key];
-    if (message === undefined) return key;
-    const form =
-      typeof message === 'string'
-        ? message
-        : (message[new Intl.PluralRules('en-US').select(Number(params?.count ?? 0))] ??
-          message.other);
-    return form.replace(/\{(\w+)\}/g, (match, name: string) =>
-      params && Object.hasOwn(params, name) ? String(params[name]) : match,
-    );
-  },
-};
+/** English for callers that pass no translator (unit tests, the per-request
+ *  resolver and its logs). */
+const ENGLISH: ShippingTranslator = enI18n;
 
 export const SHIPPING_CONFIG_KEY = 'shipping_config';
 

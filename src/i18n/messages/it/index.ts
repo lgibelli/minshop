@@ -1,16 +1,16 @@
-import { common } from './common';
-import { storefront } from './storefront';
-import { cart } from './cart';
-import { checkout } from './checkout';
-import { order } from './order';
-import { account } from './account';
-import { email } from './email';
-import { admin } from './admin';
-import { adminProducts } from './adminProducts';
-import { catalog } from './catalog';
-import { adminOrders } from './adminOrders';
-import { adminContent } from './adminContent';
-import { adminSettings } from './adminSettings';
+import { common } from './common.ts';
+import { storefront } from './storefront.ts';
+import { cart } from './cart.ts';
+import { checkout } from './checkout.ts';
+import { order } from './order.ts';
+import { account } from './account.ts';
+import { email } from './email.ts';
+import { admin } from './admin.ts';
+import { adminProducts } from './adminProducts.ts';
+import { catalog } from './catalog.ts';
+import { adminOrders } from './adminOrders.ts';
+import { adminContent } from './adminContent.ts';
+import { adminSettings } from './adminSettings.ts';
 
 /** Keys missing here fall back to English. */
 export const it = {
