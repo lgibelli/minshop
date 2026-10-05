@@ -1,11 +1,7 @@
-/**
- * Import-free on purpose. Storefront templates reach this catalog for their
- * English fallback (features/storefront/controls/i18n.ts), and the storefront
- * boundary checker walks every module a template reaches; importing
- * ../../core would drag every locale's catalogs into each walk. Same shape as
- * core's Message.
- */
-type Message = string | ({ other: string } & Partial<Record<Intl.LDMLPluralRule, string>>);
+// The catalog-free formatter's type, not ../../core's: storefront templates
+// reach this file for their English fallback, and core would drag every
+// locale's catalogs into the storefront boundary checker's import walk.
+import type { Message } from '../../format';
 
 /**
  * The shopper-facing browse surfaces: the document shell, every theme's

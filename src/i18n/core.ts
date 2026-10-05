@@ -12,17 +12,16 @@
  *   - CLDR plural forms chosen by `params.count` through Intl.PluralRules:
  *     { one: '{count} item', other: '{count} items' } — Polish adds `few`/`many`.
  */
-import { formatMoney } from '../money.ts';
+import { createTranslator, type Message, type Translator } from './format.ts';
 import { en } from './messages/en/index.ts';
 import { pl } from './messages/pl/index.ts';
 import { it } from './messages/it/index.ts';
 
-export type PluralMessage = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
-export type Message = string | PluralMessage;
+export { escapeHtml, formatMessage } from './format.ts';
+export type { Message, Params, PluralMessage } from './format.ts';
 export type MessageKey = keyof typeof en;
 /** A translation: any subset of the English keys (missing ones fall back). */
 export type Catalog = Partial<Record<MessageKey, Message>>;
-export type Params = Record<string, string | number>;
 
 interface LocaleInfo {
   /** Native name, for the admin language switcher. */
@@ -54,92 +53,9 @@ export function resolveLocale(value: unknown): Locale {
   return isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
-export interface I18n {
+/** The translator for one locale, typed over every catalog key. */
+export interface I18n extends Translator<MessageKey> {
   locale: Locale;
-  /** BCP 47 tag for Intl (en-US, pl-PL, …). */
-  intl: string;
-  /** Translate a key. Unknown keys return the key itself (and fail typecheck). */
-  t(key: MessageKey, params?: Params): string;
-  /**
-   * Translate a message that contains markup (catalogs are trusted source),
-   * HTML-escaping every param. Render with `set:html`.
-   */
-  th(key: MessageKey, params?: Params): string;
-  /** Integer minor units → localized price in an explicit currency. */
-  money(minor: number, currency: string): string;
-  /** Localized number (grouping, decimals). */
-  number(value: number, opts?: Intl.NumberFormatOptions): string;
-}
-
-const HTML_ESCAPES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-};
-
-export function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
-}
-
-function interpolate(template: string, params: Params | undefined, escape: boolean): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => {
-    if (!Object.hasOwn(params, name)) return match;
-    const value = String(params[name]);
-    return escape ? escapeHtml(value) : value;
-  });
-}
-
-// Intl constructors are expensive; one cached instance per locale/options.
-const pluralRules = new Map<string, Intl.PluralRules>();
-const numberFormats = new Map<string, Intl.NumberFormat>();
-
-function pluralCategory(intl: string, count: number): Intl.LDMLPluralRule {
-  let rules = pluralRules.get(intl);
-  if (!rules) {
-    rules = new Intl.PluralRules(intl);
-    pluralRules.set(intl, rules);
-  }
-  return rules.select(count);
-}
-
-function numberFormat(intl: string, opts: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
-  const cacheKey = `${intl}|${JSON.stringify(opts)}`;
-  let fmt = numberFormats.get(cacheKey);
-  if (!fmt) {
-    fmt = new Intl.NumberFormat(intl, opts);
-    numberFormats.set(cacheKey, fmt);
-  }
-  return fmt;
-}
-
-/**
- * Render one message: pick the plural form for `params.count` (falling back to
- * `other`), then fill `{param}` placeholders. Unknown placeholders stay as-is.
- */
-export function formatMessage(
-  message: Message,
-  intl: string,
-  params?: Params,
-  escape = false,
-): string {
-  if (typeof message === 'string') return interpolate(message, params, escape);
-  const count = Number(params?.count ?? 0);
-  const form = message[pluralCategory(intl, count)] ?? message.other;
-  return interpolate(form, params, escape);
-}
-
-function render(
-  locale: Locale,
-  intl: string,
-  key: MessageKey,
-  params: Params | undefined,
-  escape: boolean,
-): string {
-  const message = (LOCALES[locale].messages as Catalog)[key] ?? (en as Catalog)[key];
-  return message === undefined ? key : formatMessage(message, intl, params, escape);
 }
 
 const instances = new Map<Locale, I18n>();
@@ -148,15 +64,12 @@ const instances = new Map<Locale, I18n>();
 export function createI18n(locale: Locale = DEFAULT_LOCALE): I18n {
   const cached = instances.get(locale);
   if (cached) return cached;
-  const intl = LOCALES[locale].intl;
-  const i18n: I18n = {
+  const messages = LOCALES[locale].messages as Catalog;
+  const i18n = createTranslator<MessageKey>(
     locale,
-    intl,
-    t: (key, params) => render(locale, intl, key, params, false),
-    th: (key, params) => render(locale, intl, key, params, true),
-    money: (minor, currency) => formatMoney(minor, currency, intl),
-    number: (value, opts) => numberFormat(intl, opts).format(value),
-  };
+    LOCALES[locale].intl,
+    (key) => messages[key] ?? (en as Catalog)[key],
+  ) as I18n;
   instances.set(locale, i18n);
   return i18n;
 }
