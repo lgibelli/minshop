@@ -12,6 +12,7 @@ import {
   errorsFor,
   fingerprintRawConfig,
   migrationCandidate,
+  parseRuntimeShippingConfig,
   parseShippingForm,
   replaceInvalidShippingConfig,
   saveRuntimeShippingConfig,
@@ -22,6 +23,8 @@ import {
 
 export const prerender = false;
 
+const i18n = Astro.locals.i18n;
+const { t, th } = i18n;
 const settings = Astro.locals.settings;
 const config = getConfig();
 const currency = config.currency;
@@ -63,7 +66,7 @@ function initialModel(): ShippingFormModel {
   if (parsed.status === 'valid') {
     return documentToForm(parsed.config, currency, unit, formatWeightValue);
   }
-  return migrationCandidate(config.shipping, settings?.shippingEnabled ?? null, currency);
+  return migrationCandidate(config.shipping, settings?.shippingEnabled ?? null, currency, i18n);
 }
 
 let model: ShippingFormModel = initialModel();
@@ -72,7 +75,7 @@ let prepopulated = false;
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const action = String(form.get('_action') ?? 'save');
-  const parsedForm = parseShippingForm(form, { currency, unit });
+  const parsedForm = parseShippingForm(form, { currency, unit }, i18n);
   model = parsedForm.model;
 
   // Structural row actions re-render without touching D1, so the editor works with
@@ -155,11 +158,10 @@ if (Astro.request.method === 'POST') {
         errors = [
           {
             field: 'document',
-            message:
-              `${missing} product${missing === 1 ? '' : 's'} (${names.join(', ')}${
-                missing > names.length ? ', …' : ''
-              }) have no shipping weight and could not be purchased. ` +
-              'Set weights or keep a flat rate in every zone.',
+            message: t('adminSettings.shipping.missingWeights', {
+              count: missing,
+              names: `${names.join(', ')}${missing > names.length ? ', …' : ''}`,
+            }),
           },
         ];
       }
@@ -174,9 +176,9 @@ if (Astro.request.method === 'POST') {
       if (result.ok) return Astro.redirect('/admin/shipping?saved=1', 303);
       if (result.reason === 'conflict') {
         conflict = true;
-        notice = 'Shipping changed in another tab. Reload and review those changes before saving yours.';
+        notice = t('adminSettings.shipping.conflict');
       } else if (result.reason === 'too_large') {
-        notice = 'That configuration is too large to store. Remove some zones or countries.';
+        notice = t('adminSettings.shipping.tooLarge');
       } else {
         errors = result.errors ?? [];
       }
@@ -192,7 +194,8 @@ if (Astro.request.method === 'POST') {
 }
 
 function parseModelForPreview(m: ShippingFormModel): ShippingValidationError[] {
-  return validateShippingDocument({
+  return validateShippingDocument(
+    {
     schema: 2,
     revision: m.revision + 1,
     enabled: m.enabled,
@@ -215,32 +218,42 @@ function parseModelForPreview(m: ShippingFormModel): ShippingValidationError[] {
             : { type: 'flat' as const, amountCents: Math.round(Number(r.amountValue) * 100) },
       })),
     })),
-  });
+    },
+    i18n,
+  );
 }
 
 const documentErrors = errorsFor(errors).filter((e) => e.field === 'document' || e.field === 'packageWeight');
+// `parsed.error` was resolved in English for the whole request; re-parse the same
+// raw row to show it in the admin's language.
+const reparsed = parsed.status === 'invalid' ? parseRuntimeShippingConfig(parsed.raw, i18n) : parsed;
+const invalidReason = reparsed.status === 'invalid' ? reparsed.error : null;
 const isFirstSave = parsed.status !== 'valid';
 const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500 ${path}`;
 ---
 
-<AdminLayout title="Shipping" active="shipping">
+<AdminLayout title={t('adminSettings.shipping.title')} active="shipping">
   <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="font-serif text-3xl tracking-tight">Shipping</h1>
+      <h1 class="font-serif text-3xl tracking-tight">{t('adminSettings.shipping.title')}</h1>
       <p class="mt-2 text-sm text-gray-500">
-        Zones, rates, and free-shipping thresholds. Amounts are in {currency.toUpperCase()};
-        weights are entered in <strong>{unit}</strong> and stored in grams — change the unit in{' '}
-        <a href="/admin/settings" class="underline hover:text-brand">Settings</a>.
+        <Fragment
+          set:html={th('adminSettings.shipping.intro', {
+            currency: currency.toUpperCase(),
+            unit,
+            href: '/admin/settings',
+          })}
+        />
       </p>
     </div>
     <a href="/cart" class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand">
-      View cart checkout &rarr;
+      {t('adminSettings.shipping.viewCart')} &rarr;
     </a>
   </div>
 
   {saved && (
     <p class="mb-6 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
-      Shipping saved.
+      {t('adminSettings.shipping.saved')}
     </p>
   )}
   {notice && (
@@ -250,25 +263,21 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
   )}
   {parsed.status === 'invalid' && (
     <div class="mb-6 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-      <strong class="font-semibold">The saved shipping configuration could not be read:</strong>{' '}
-      {parsed.error}
+      <strong class="font-semibold">{t('adminSettings.shipping.unreadable')}</strong>{' '}
+      {invalidReason}
       <p class="mt-2">
-        Checkout is blocked for physical orders until this is replaced. Review the values below
-        and use <strong>Replace invalid configuration</strong> to overwrite it.
+        <Fragment set:html={th('adminSettings.shipping.unreadableHelp')} />
       </p>
     </div>
   )}
   {prepopulated && (
     <div class="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-      This store still uses the shipping configuration from <code class="text-xs">store.config.ts</code>,
-      which allows things the editor does not. The problems are marked below — fix them, then save
-      to take ownership in Admin.
+      <Fragment set:html={th('adminSettings.shipping.prepopulated')} />
     </div>
   )}
   {isFirstSave && !prepopulated && (
     <p class="mb-6 rounded-md border border-line bg-white/60 px-4 py-3 text-sm text-gray-600">
-      Shipping currently comes from <code class="text-xs">store.config.ts</code>. Saving here moves
-      ownership to Admin — from then on this page is the source of truth.
+      <Fragment set:html={th('adminSettings.shipping.firstSave')} />
     </p>
   )}
 
@@ -280,11 +289,11 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
     <section class="rounded-md border border-line bg-white/60 p-4">
       <label class="flex items-center gap-3 text-sm">
         <input type="checkbox" name="enabled" value="1" checked={model.enabled} class="size-4" />
-        <span><strong class="font-semibold">Offer shipping</strong> — collect an address and charge for delivery.</span>
+        <span><Fragment set:html={th('adminSettings.shipping.offer')} /></span>
       </label>
       <div class="mt-4 flex flex-wrap items-end gap-3">
         <label class="block">
-          <span class={label('')}>Packaging weight ({unit})</span>
+          <span class={label('')}>{t('adminSettings.shipping.packageWeight', { unit })}</span>
           <input
             type="text"
             name="package_weight"
@@ -294,7 +303,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
           />
         </label>
         <p class="text-xs text-gray-500">
-          Box, mailer, padding and label. Added once per order, on top of item weights.
+          {t('adminSettings.shipping.packageWeightHelp')}
         </p>
       </div>
       {documentErrors.map((e) => (
@@ -307,7 +316,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
         <input type="hidden" name={`zone[${zone.token}][rate_order]`} value={zone.rates.map((r) => r.token).join(',')} />
         <div class="flex flex-wrap items-end justify-between gap-3">
           <label class="block flex-1">
-            <span class={label('')}>Zone name</span>
+            <span class={label('')}>{t('adminSettings.shipping.zoneName')}</span>
             <input
               type="text"
               name={`zone[${zone.token}][name]`}
@@ -317,9 +326,9 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
             />
           </label>
           <div class="flex gap-2 text-xs uppercase tracking-widest">
-            <button name="_action" value={`move_zone:${zone.token}:up`} class="text-gray-500 hover:text-brand" disabled={zoneIndex === 0}>Up</button>
-            <button name="_action" value={`move_zone:${zone.token}:down`} class="text-gray-500 hover:text-brand" disabled={zoneIndex === model.zones.length - 1}>Down</button>
-            <button name="_action" value={`remove_zone:${zone.token}`} class="text-red-600 hover:text-red-800">Remove zone</button>
+            <button name="_action" value={`move_zone:${zone.token}:up`} class="text-gray-500 hover:text-brand" disabled={zoneIndex === 0}>{t('adminSettings.shipping.moveUp')}</button>
+            <button name="_action" value={`move_zone:${zone.token}:down`} class="text-gray-500 hover:text-brand" disabled={zoneIndex === model.zones.length - 1}>{t('adminSettings.shipping.moveDown')}</button>
+            <button name="_action" value={`remove_zone:${zone.token}`} class="text-red-600 hover:text-red-800">{t('adminSettings.shipping.removeZone')}</button>
           </div>
         </div>
         {errorsFor(errors, zoneIndex).map((e) => (
@@ -328,14 +337,14 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
 
         <div class="mt-4 grid gap-4 sm:grid-cols-2">
           <label class="block">
-            <span class={label('')}>Destinations</span>
+            <span class={label('')}>{t('adminSettings.shipping.destinations')}</span>
             <select
               name={`zone[${zone.token}][countries][]`}
               multiple
               size="6"
               class="mt-1 w-full rounded border border-line px-2 py-1 text-sm"
             >
-              <option value="*" selected={zone.countries.includes('*')}>Rest of world</option>
+              <option value="*" selected={zone.countries.includes('*')}>{t('adminSettings.shipping.restOfWorld')}</option>
               {countries.map((c) => (
                 <option value={c.code} selected={zone.countries.includes(c.code)}>{c.name}</option>
               ))}
@@ -344,13 +353,13 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                 hiding the very value the merchant has to fix — keep them visible. */}
             {zone.countries.filter((c) => c !== '*' && !countries.some((k) => k.code === c)).map((c) => (
               <span class="mt-1 inline-block rounded bg-red-100 px-2 py-0.5 text-xs text-red-800">
-                Unknown code: {c}
+                {t('adminSettings.shipping.unknownCode', { code: c })}
                 <input type="hidden" name={`zone[${zone.token}][countries][]`} value={c} />
               </span>
             ))}
           </label>
           <label class="block">
-            <span class={label('')}>Free shipping over ({currency.toUpperCase()})</span>
+            <span class={label('')}>{t('adminSettings.shipping.freeOver', { currency: currency.toUpperCase() })}</span>
             <input
               type="text"
               name={`zone[${zone.token}][free_over]`}
@@ -358,7 +367,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
               inputmode="decimal"
               class="mt-1 w-full rounded border border-line px-2 py-1 text-sm"
             />
-            <span class="mt-1 block text-xs text-gray-500">Blank disables it.</span>
+            <span class="mt-1 block text-xs text-gray-500">{t('adminSettings.shipping.freeOverHelp')}</span>
           </label>
         </div>
 
@@ -367,7 +376,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
             <div class="rounded border border-line bg-paper p-3">
               <div class="flex flex-wrap items-end gap-3">
                 <label class="block">
-                  <span class={label('')}>Rate label</span>
+                  <span class={label('')}>{t('adminSettings.shipping.rateLabel')}</span>
                   <input
                     type="text"
                     name={`zone[${zone.token}][rate][${rate.token}][label]`}
@@ -377,19 +386,23 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                   />
                 </label>
                 <label class="block">
-                  <span class={label('')}>Pricing</span>
+                  <span class={label('')}>{t('adminSettings.shipping.pricing')}</span>
                   <select
                     name={`zone[${zone.token}][rate][${rate.token}][mode]`}
                     class="mt-1 rounded border border-line px-2 py-1 text-sm"
                   >
-                    <option value="flat" selected={rate.mode === 'flat'}>Flat price</option>
-                    <option value="weight" selected={rate.mode === 'weight'}>By order weight</option>
-                    <option value="pickup" selected={rate.mode === 'pickup'}>Local pickup</option>
+                    <option value="flat" selected={rate.mode === 'flat'}>{t('adminSettings.shipping.pricingFlat')}</option>
+                    <option value="weight" selected={rate.mode === 'weight'}>{t('adminSettings.shipping.pricingWeight')}</option>
+                    <option value="pickup" selected={rate.mode === 'pickup'}>{t('adminSettings.shipping.pricingPickup')}</option>
                   </select>
                 </label>
                 {rate.mode !== 'weight' && (
                   <label class="block">
-                    <span class={label('')}>{rate.mode === 'pickup' ? 'Fee (0 = free)' : 'Price'}</span>
+                    <span class={label('')}>
+                      {rate.mode === 'pickup'
+                        ? t('adminSettings.shipping.pickupFee')
+                        : t('adminSettings.shipping.price')}
+                    </span>
                     <input
                       type="text"
                       name={`zone[${zone.token}][rate][${rate.token}][amount]`}
@@ -404,7 +417,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                   value={`remove_rate:${zone.token}:${rate.token}`}
                   class="ml-auto text-xs uppercase tracking-widest text-red-600 hover:text-red-800"
                 >
-                  Remove rate
+                  {t('adminSettings.shipping.removeRate')}
                 </button>
               </div>
               {errorsFor(errors, zoneIndex, rateIndex).map((e) => (
@@ -418,11 +431,11 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                     name={`zone[${zone.token}][rate][${rate.token}][band_order]`}
                     value={rate.bands.map((b) => b.token).join(',')}
                   />
-                  <p class={label('mb-2 block')}>Weight bands</p>
+                  <p class={label('mb-2 block')}>{t('adminSettings.shipping.weightBands')}</p>
                   {rate.bands.map((band, bandIndex) => (
                     <div class="mb-2 flex flex-wrap items-end gap-3">
                       <label class="block">
-                        <span class="text-xs text-gray-500">Up to ({unit})</span>
+                        <span class="text-xs text-gray-500">{t('adminSettings.shipping.upTo', { unit })}</span>
                         <input
                           type="text"
                           name={`zone[${zone.token}][rate][${rate.token}][band][${band.token}][up_to]`}
@@ -441,11 +454,11 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                             checked={band.noMax}
                             class="size-4"
                           />
-                          No maximum
+                          {t('adminSettings.shipping.noMax')}
                         </label>
                       )}
                       <label class="block">
-                        <span class="text-xs text-gray-500">Price</span>
+                        <span class="text-xs text-gray-500">{t('adminSettings.shipping.price')}</span>
                         <input
                           type="text"
                           name={`zone[${zone.token}][rate][${rate.token}][band][${band.token}][amount]`}
@@ -459,7 +472,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                         value={`remove_band:${zone.token}:${rate.token}:${band.token}`}
                         class="pb-1 text-xs uppercase tracking-widest text-red-600 hover:text-red-800"
                       >
-                        Remove
+                        {t('adminSettings.shipping.removeBand')}
                       </button>
                       {errorsFor(errors, zoneIndex, rateIndex, bandIndex).map((e) => (
                         <p class="w-full text-sm text-red-700">{e.message}</p>
@@ -471,7 +484,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
                     value={`add_band:${zone.token}:${rate.token}`}
                     class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
                   >
-                    + Add band
+                    + {t('adminSettings.shipping.addBand')}
                   </button>
                 </div>
               )}
@@ -482,7 +495,7 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
             value={`add_rate:${zone.token}`}
             class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
           >
-            + Add rate
+            + {t('adminSettings.shipping.addRate')}
           </button>
         </div>
       </section>
@@ -494,18 +507,19 @@ const label = (path: string) => `text-xs uppercase tracking-widest text-gray-500
         value={parsed.status === 'invalid' ? 'replace' : 'save'}
         class="rounded bg-brand px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
       >
-        {parsed.status === 'invalid' ? 'Replace invalid configuration' : 'Save shipping'}
+        {parsed.status === 'invalid'
+          ? t('adminSettings.shipping.replace')
+          : t('adminSettings.shipping.save')}
       </button>
       <button
         name="_action"
         value="add_zone"
         class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
       >
-        + Add zone
+        + {t('adminSettings.shipping.addZone')}
       </button>
       <p class="text-xs text-gray-500">
-        Stripe shows the rates for the country chosen in the cart; the final address is confirmed
-        on its hosted page. Other rails collect the address before payment.
+        {t('adminSettings.shipping.footer')}
       </p>
     </div>
   </form>

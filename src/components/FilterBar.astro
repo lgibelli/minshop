@@ -26,10 +26,26 @@ interface Props {
   active: boolean;
   /** Result count, shown only while filtered so the empty case is explicable. */
   count?: number;
+  /**
+   * The count as words, already translated and pluralized by the caller, e.g.
+   * t('adminOrders.list.count', { count }) → "3 orders". Defaults to "N results".
+   */
+  countLabel?: string;
+  /** @deprecated English-only ("N <noun>s"); pass `countLabel` instead. */
   noun?: string;
 }
 
-const { action, selects, search, hidden = {}, active, count, noun = 'result' } = Astro.props;
+const { action, selects, search, hidden = {}, active, count, countLabel, noun } = Astro.props;
+const { t } = Astro.locals.i18n;
+// `noun` predates translation: it keeps its English "N nouns" output until every
+// caller passes a translated `countLabel`.
+const countText =
+  count === undefined
+    ? ''
+    : (countLabel ??
+      (noun
+        ? `${count} ${noun}${count === 1 ? '' : 's'}`
+        : t('adminSettings.filterBar.results', { count })));
 ---
 
 <form method="GET" action={action} class="mb-6 flex flex-wrap items-end gap-3" data-filter-bar>
@@ -45,7 +61,7 @@ const { action, selects, search, hidden = {}, active, count, noun = 'result' } =
   {
     search && (
       <label class="flex flex-col gap-1">
-        <span class="text-xs uppercase tracking-widest text-faint">Search</span>
+        <span class="text-xs uppercase tracking-widest text-faint">{t('adminSettings.filterBar.search')}</span>
         <input
           type="search"
           name={search.name}
@@ -81,7 +97,7 @@ const { action, selects, search, hidden = {}, active, count, noun = 'result' } =
     type="submit"
     class="rounded-md border border-line px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-muted hover:border-brand hover:text-brand"
   >
-    Apply
+    {t('adminSettings.filterBar.apply')}
   </button>
 
   {
@@ -90,7 +106,7 @@ const { action, selects, search, hidden = {}, active, count, noun = 'result' } =
         href={action}
         class="py-1.5 text-xs uppercase tracking-widest text-faint hover:text-brand"
       >
-        Clear
+        {t('adminSettings.filterBar.clear')}
       </a>
     )
   }
@@ -98,8 +114,7 @@ const { action, selects, search, hidden = {}, active, count, noun = 'result' } =
   {
     active && count !== undefined && (
       <span class="py-1.5 text-xs text-muted">
-        {count} {noun}
-        {count === 1 ? '' : 's'}
+        {countText}
       </span>
     )
   }

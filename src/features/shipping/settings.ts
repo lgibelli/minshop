@@ -21,6 +21,32 @@ import {
 import { CATCH_ALL, countryName, isCountryCode } from './countries.ts';
 import { toGrams, type WeightUnit } from './weight.ts';
 import { toMinorUnits } from '../../money.ts';
+import type { I18n, Message, Params } from '../../i18n/core.ts';
+import { adminSettings as englishMessages } from '../../i18n/messages/en/adminSettings.ts';
+
+/** The part of a translator this module uses: callers pass `Astro.locals.i18n`. */
+export type ShippingTranslator = Pick<I18n, 't'>;
+
+/**
+ * English for callers that pass no translator (unit tests, the per-request
+ * resolver and its logs). Deliberately not core's `enI18n`: plain-Node scripts
+ * (test/integration/shipping.mjs) load this module, and core.ts's extensionless
+ * imports do not resolve there. The catalog file itself has only type imports.
+ */
+const ENGLISH: ShippingTranslator = {
+  t(key, params?: Params) {
+    const message = (englishMessages as Record<string, Message | undefined>)[key];
+    if (message === undefined) return key;
+    const form =
+      typeof message === 'string'
+        ? message
+        : (message[new Intl.PluralRules('en-US').select(Number(params?.count ?? 0))] ??
+          message.other);
+    return form.replace(/\{(\w+)\}/g, (match, name: string) =>
+      params && Object.hasOwn(params, name) ? String(params[name]) : match,
+    );
+  },
+};
 
 export const SHIPPING_CONFIG_KEY = 'shipping_config';
 
@@ -100,10 +126,20 @@ function isAmount(value: unknown): value is number {
   );
 }
 
-function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
+function validateBands(
+  bands: unknown,
+  zoneIndex: number,
+  rateIndex: number,
+  { t }: ShippingTranslator,
+) {
   const errors: ShippingValidationError[] = [];
   if (!Array.isArray(bands) || bands.length === 0) {
-    errors.push({ zoneIndex, rateIndex, field: 'bands', message: 'Add at least one weight band.' });
+    errors.push({
+      zoneIndex,
+      rateIndex,
+      field: 'bands',
+      message: t('adminSettings.shippingErrors.needBand'),
+    });
     return errors;
   }
   if (bands.length > SHIPPING_LIMITS.bandsPerRate) {
@@ -111,7 +147,7 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
       zoneIndex,
       rateIndex,
       field: 'bands',
-      message: `At most ${SHIPPING_LIMITS.bandsPerRate} bands per service.`,
+      message: t('adminSettings.shippingErrors.maxBands', { count: SHIPPING_LIMITS.bandsPerRate }),
     });
     return errors;
   }
@@ -119,7 +155,13 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
   bands.forEach((band: WeightBand, bandIndex) => {
     const last = bandIndex === bands.length - 1;
     if (!isAmount(band?.amountCents)) {
-      errors.push({ zoneIndex, rateIndex, bandIndex, field: 'amount', message: 'Enter a price.' });
+      errors.push({
+        zoneIndex,
+        rateIndex,
+        bandIndex,
+        field: 'amount',
+        message: t('adminSettings.shippingErrors.enterPrice'),
+      });
     }
     if (band?.upToGrams == null) {
       if (!last) {
@@ -128,7 +170,7 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
           rateIndex,
           bandIndex,
           field: 'upTo',
-          message: 'Only the last band can have no maximum.',
+          message: t('adminSettings.shippingErrors.lastBandOnly'),
         });
       }
       return;
@@ -139,7 +181,7 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
         rateIndex,
         bandIndex,
         field: 'upTo',
-        message: 'Enter a weight above zero.',
+        message: t('adminSettings.shippingErrors.weightAboveZero'),
       });
       return;
     }
@@ -149,7 +191,7 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
         rateIndex,
         bandIndex,
         field: 'upTo',
-        message: 'Each band must be heavier than the one above it.',
+        message: t('adminSettings.shippingErrors.bandOrder'),
       });
     }
     previous = band.upToGrams;
@@ -159,26 +201,36 @@ function validateBands(bands: unknown, zoneIndex: number, rateIndex: number) {
 
 /** Every invariant the storefront relies on. Used on save AND on read, so a
  *  hand-edited row cannot reach checkout through a path validation never saw. */
-export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingValidationError[] {
+export function validateShippingDocument(
+  doc: RuntimeShippingConfig,
+  i18n: ShippingTranslator = ENGLISH,
+): ShippingValidationError[] {
+  const { t } = i18n;
   const errors: ShippingValidationError[] = [];
 
   if (typeof doc.enabled !== 'boolean') {
-    errors.push({ field: 'document', message: 'Enabled must be true or false.' });
+    errors.push({ field: 'document', message: t('adminSettings.shippingErrors.enabledBoolean') });
   }
   if (!Number.isSafeInteger(doc.packageWeightGrams) || doc.packageWeightGrams < 0) {
-    errors.push({ field: 'packageWeight', message: 'Enter a package weight of zero or more.' });
+    errors.push({
+      field: 'packageWeight',
+      message: t('adminSettings.shippingErrors.packageWeight'),
+    });
   }
   if (!Array.isArray(doc.zones)) {
-    errors.push({ field: 'document', message: 'Zones must be a list.' });
+    errors.push({ field: 'document', message: t('adminSettings.shippingErrors.zonesList') });
     return errors;
   }
   if (doc.zones.length > SHIPPING_LIMITS.zones) {
-    errors.push({ field: 'document', message: `At most ${SHIPPING_LIMITS.zones} zones.` });
+    errors.push({
+      field: 'document',
+      message: t('adminSettings.shippingErrors.maxZones', { count: SHIPPING_LIMITS.zones }),
+    });
   }
   if (doc.enabled && doc.zones.length === 0) {
     errors.push({
       field: 'document',
-      message: 'Add at least one zone with one rate before turning shipping on.',
+      message: t('adminSettings.shippingErrors.needZone'),
     });
   }
 
@@ -189,28 +241,40 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
   doc.zones.forEach((zone, zoneIndex) => {
     const name = (zone?.name ?? '').trim();
     if (!name) {
-      errors.push({ zoneIndex, field: 'name', message: 'Name this zone.' });
+      errors.push({ zoneIndex, field: 'name', message: t('adminSettings.shippingErrors.nameZone') });
     } else if (name.length > SHIPPING_LIMITS.zoneName) {
       errors.push({
         zoneIndex,
         field: 'name',
-        message: `Keep the name under ${SHIPPING_LIMITS.zoneName} characters.`,
+        message: t('adminSettings.shippingErrors.zoneNameLength', {
+          count: SHIPPING_LIMITS.zoneName,
+        }),
       });
     } else if (names.has(name.toLowerCase())) {
-      errors.push({ zoneIndex, field: 'name', message: 'Another zone already uses this name.' });
+      errors.push({
+        zoneIndex,
+        field: 'name',
+        message: t('adminSettings.shippingErrors.zoneNameTaken'),
+      });
     } else {
       names.add(name.toLowerCase());
     }
 
     const zoneCountries = Array.isArray(zone?.countries) ? zone.countries : [];
     if (zoneCountries.length === 0) {
-      errors.push({ zoneIndex, field: 'countries', message: 'Choose at least one destination.' });
+      errors.push({
+        zoneIndex,
+        field: 'countries',
+        message: t('adminSettings.shippingErrors.needDestination'),
+      });
     }
     if (zoneCountries.length > SHIPPING_LIMITS.countriesPerZone) {
       errors.push({
         zoneIndex,
         field: 'countries',
-        message: `At most ${SHIPPING_LIMITS.countriesPerZone} countries per zone.`,
+        message: t('adminSettings.shippingErrors.maxCountries', {
+          count: SHIPPING_LIMITS.countriesPerZone,
+        }),
       });
     }
     const hasCatchAll = zoneCountries.includes(CATCH_ALL);
@@ -219,14 +283,14 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
         errors.push({
           zoneIndex,
           field: 'countries',
-          message: 'Rest of world cannot be combined with specific countries.',
+          message: t('adminSettings.shippingErrors.restOfWorldMixed'),
         });
       }
       if (catchAllIndex >= 0) {
         errors.push({
           zoneIndex,
           field: 'countries',
-          message: 'Only one zone can be Rest of world.',
+          message: t('adminSettings.shippingErrors.restOfWorldOnce'),
         });
       }
       catchAllIndex = zoneIndex;
@@ -234,7 +298,11 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
     for (const code of zoneCountries) {
       if (code === CATCH_ALL) continue;
       if (!isCountryCode(code)) {
-        errors.push({ zoneIndex, field: 'countries', message: `${code} is not a country code.` });
+        errors.push({
+          zoneIndex,
+          field: 'countries',
+          message: t('adminSettings.shippingErrors.notCountryCode', { code }),
+        });
         continue;
       }
       const cc = code.toUpperCase();
@@ -242,7 +310,7 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
         errors.push({
           zoneIndex,
           field: 'countries',
-          message: `${countryName(cc)} is already in another zone.`,
+          message: t('adminSettings.shippingErrors.countryTaken', { country: countryName(cc) }),
         });
       }
       countries.add(cc);
@@ -250,20 +318,31 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
 
     const rates = Array.isArray(zone?.rates) ? zone.rates : [];
     if (rates.length === 0) {
-      errors.push({ zoneIndex, field: 'document', message: 'Add at least one shipping rate.' });
+      errors.push({
+        zoneIndex,
+        field: 'document',
+        message: t('adminSettings.shippingErrors.needRate'),
+      });
     }
     const freeOver = zone?.freeOverCents;
     if (freeOver != null && (!isAmount(freeOver) || freeOver <= 0)) {
-      errors.push({ zoneIndex, field: 'freeOver', message: 'Enter an amount above zero.' });
+      errors.push({
+        zoneIndex,
+        field: 'freeOver',
+        message: t('adminSettings.shippingErrors.amountAboveZero'),
+      });
     }
     const resolved = rates.length + (freeOver != null ? 1 : 0);
     if (resolved > SHIPPING_LIMITS.resolvedOptionsPerZone) {
       errors.push({
         zoneIndex,
         field: 'document',
-        message:
-          `A zone can offer at most ${SHIPPING_LIMITS.resolvedOptionsPerZone} options` +
-          (freeOver != null ? ' (free shipping counts as one).' : '.'),
+        message: t(
+          freeOver != null
+            ? 'adminSettings.shippingErrors.maxOptionsWithFree'
+            : 'adminSettings.shippingErrors.maxOptions',
+          { count: SHIPPING_LIMITS.resolvedOptionsPerZone },
+        ),
       });
     }
 
@@ -271,20 +350,27 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
     rates.forEach((rate, rateIndex) => {
       const label = (rate?.label ?? '').trim();
       if (!label) {
-        errors.push({ zoneIndex, rateIndex, field: 'label', message: 'Name this rate.' });
+        errors.push({
+          zoneIndex,
+          rateIndex,
+          field: 'label',
+          message: t('adminSettings.shippingErrors.nameRate'),
+        });
       } else if (label.length > SHIPPING_LIMITS.rateLabel) {
         errors.push({
           zoneIndex,
           rateIndex,
           field: 'label',
-          message: `Keep the label under ${SHIPPING_LIMITS.rateLabel} characters.`,
+          message: t('adminSettings.shippingErrors.rateLabelLength', {
+            count: SHIPPING_LIMITS.rateLabel,
+          }),
         });
       } else if (labels.has(label.toLowerCase())) {
         errors.push({
           zoneIndex,
           rateIndex,
           field: 'label',
-          message: 'Another rate in this zone uses this label.',
+          message: t('adminSettings.shippingErrors.rateLabelTaken'),
         });
       } else if (freeOver != null && label.toLowerCase() === FREE_SHIPPING_LABEL.toLowerCase()) {
         // The free option is synthesized under this exact label; a configured rate
@@ -293,7 +379,9 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
           zoneIndex,
           rateIndex,
           field: 'label',
-          message: `"${FREE_SHIPPING_LABEL}" is reserved while a free-shipping threshold is set.`,
+          message: t('adminSettings.shippingErrors.freeLabelReserved', {
+            label: FREE_SHIPPING_LABEL,
+          }),
         });
       } else {
         labels.add(label.toLowerCase());
@@ -302,12 +390,22 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
       const pricing = rate?.pricing;
       if (pricing?.type === 'flat' || pricing?.type === 'pickup') {
         if (!isAmount(pricing.amountCents)) {
-          errors.push({ zoneIndex, rateIndex, field: 'amount', message: 'Enter a price.' });
+          errors.push({
+            zoneIndex,
+            rateIndex,
+            field: 'amount',
+            message: t('adminSettings.shippingErrors.enterPrice'),
+          });
         }
       } else if (pricing?.type === 'weight') {
-        errors.push(...validateBands(pricing.bands, zoneIndex, rateIndex));
+        errors.push(...validateBands(pricing.bands, zoneIndex, rateIndex, i18n));
       } else {
-        errors.push({ zoneIndex, rateIndex, field: 'amount', message: 'Choose a pricing mode.' });
+        errors.push({
+          zoneIndex,
+          rateIndex,
+          field: 'amount',
+          message: t('adminSettings.shippingErrors.choosePricing'),
+        });
       }
     });
   });
@@ -316,7 +414,7 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
     errors.push({
       zoneIndex: catchAllIndex,
       field: 'countries',
-      message: 'Rest of world must be the last zone.',
+      message: t('adminSettings.shippingErrors.restOfWorldLast'),
     });
   }
 
@@ -325,20 +423,28 @@ export function validateShippingDocument(doc: RuntimeShippingConfig): ShippingVa
 
 // ── Parsing ──────────────────────────────────────────────────────────────────
 
-/** Read the stored row. Never throws: a corrupt value is a state, not a crash. */
+/**
+ * Read the stored row. Never throws: a corrupt value is a state, not a crash.
+ *
+ * The settings read resolves this once per request in English (the reason also
+ * feeds the logs); a page that shows the reason re-parses `raw` with its own
+ * translator — see localizedShippingIssue().
+ */
 export function parseRuntimeShippingConfig(
   raw: string | null | undefined,
+  i18n: ShippingTranslator = ENGLISH,
 ): ParsedRuntimeShippingConfig {
+  const { t } = i18n;
   if (raw == null || raw === '') return { status: 'absent' };
 
   let value: unknown;
   try {
     value = JSON.parse(raw);
   } catch {
-    return { status: 'invalid', raw, error: 'The stored shipping configuration is not valid JSON.' };
+    return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.invalidJson') };
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { status: 'invalid', raw, error: 'The stored shipping configuration is not an object.' };
+    return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.notObject') };
   }
 
   const doc = value as Partial<RuntimeShippingConfig>;
@@ -346,11 +452,11 @@ export function parseRuntimeShippingConfig(
     return {
       status: 'invalid',
       raw,
-      error: `Unsupported shipping schema version ${String(doc.schema)}.`,
+      error: t('adminSettings.shippingErrors.unsupportedSchema', { version: String(doc.schema) }),
     };
   }
   if (!Number.isSafeInteger(doc.revision) || (doc.revision as number) < 0) {
-    return { status: 'invalid', raw, error: 'The shipping configuration has no valid revision.' };
+    return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.noRevision') };
   }
 
   // Coercion is a SCHEMA 1 MIGRATION, not a parser. Applying it to a schema 2
@@ -361,13 +467,13 @@ export function parseRuntimeShippingConfig(
   const isLegacy = doc.schema < 2;
   if (!isLegacy) {
     if (typeof doc.enabled !== 'boolean') {
-      return { status: 'invalid', raw, error: 'The shipping configuration has no valid on/off value.' };
+      return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.noOnOff') };
     }
     if (!Number.isSafeInteger(doc.packageWeightGrams)) {
-      return { status: 'invalid', raw, error: 'The shipping configuration has an invalid packaging weight.' };
+      return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.badPackageWeight') };
     }
     if (!Array.isArray(doc.zones)) {
-      return { status: 'invalid', raw, error: 'The shipping configuration has no zone list.' };
+      return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.noZoneList') };
     }
     for (const zone of doc.zones) {
       if (
@@ -377,16 +483,16 @@ export function parseRuntimeShippingConfig(
         !Array.isArray(zone?.rates) ||
         (zone.freeOverCents !== null && typeof zone.freeOverCents !== 'number')
       ) {
-        return { status: 'invalid', raw, error: 'The shipping configuration has a malformed zone.' };
+        return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.malformedZone') };
       }
       for (const rate of zone.rates) {
         if (typeof rate?.label !== 'string' || rate?.pricing == null) {
-          return { status: 'invalid', raw, error: 'The shipping configuration has a malformed rate.' };
+          return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.malformedRate') };
         }
       }
     }
   } else if (typeof doc.enabled !== 'boolean') {
-    return { status: 'invalid', raw, error: 'The shipping configuration has no valid on/off value.' };
+    return { status: 'invalid', raw, error: t('adminSettings.shippingErrors.noOnOff') };
   }
 
   const normalized: RuntimeShippingConfig = {
@@ -413,7 +519,7 @@ export function parseRuntimeShippingConfig(
     })),
   };
 
-  const errors = validateShippingDocument(normalized);
+  const errors = validateShippingDocument(normalized, i18n);
   if (errors.length > 0) {
     return { status: 'invalid', raw, error: errors[0]!.message };
   }
@@ -438,7 +544,10 @@ export interface EffectiveShipping {
 /** Build-time config is authored in TypeScript with no save-time validation, so the
  *  same invariants are checked on read. Over-cap zones would otherwise fail only at
  *  Stripe session creation, after the shopper has committed to checking out. */
-export function validateBuildTimeShipping(cfg: ShippingConfig): string | null {
+export function validateBuildTimeShipping(
+  cfg: ShippingConfig,
+  i18n: ShippingTranslator = ENGLISH,
+): string | null {
   const asDocument: RuntimeShippingConfig = {
     schema: SHIPPING_SCHEMA_VERSION,
     revision: 0,
@@ -447,7 +556,7 @@ export function validateBuildTimeShipping(cfg: ShippingConfig): string | null {
     zones: cfg.zones.map((zone, index) => ({
       // Build-time zones have no names; supply one so name rules cannot fail a
       // configuration the merchant has no way to edit from here.
-      name: zone.name ?? `Zone ${index + 1}`,
+      name: zone.name ?? i18n.t('adminSettings.shipping.zoneFallbackName', { number: index + 1 }),
       countries: zone.countries,
       rates: zone.rates.map((rate) =>
         'pricing' in rate
@@ -469,11 +578,12 @@ export function validateBuildTimeShipping(cfg: ShippingConfig): string | null {
       zone.rates.length === 0 && zone.freeOverCents != null ? [index] : [],
     ),
   );
-  const errors = validateShippingDocument(asDocument).filter(
+  const needRate = i18n.t('adminSettings.shippingErrors.needRate');
+  const errors = validateShippingDocument(asDocument, i18n).filter(
     (e) =>
       e.field !== 'name' &&
       !(
-        e.message === 'Add at least one shipping rate.' &&
+        e.message === needRate &&
         e.zoneIndex != null &&
         thresholdOnly.has(e.zoneIndex)
       ),
@@ -532,6 +642,27 @@ export function effectiveShippingConfig(
     source: 'build-time',
     issue: null,
   };
+}
+
+/**
+ * An issue's reason in the reader's language. Resolution runs once per request in
+ * English (its reason feeds the logs), so a page showing the reason re-derives it
+ * from the same inputs with its own translator.
+ */
+export function localizedShippingIssue(
+  issue: ShippingConfigIssue,
+  parsed: ParsedRuntimeShippingConfig,
+  buildTime: ShippingConfig,
+  i18n: ShippingTranslator = ENGLISH,
+): string {
+  if (issue.source === 'admin' && parsed.status === 'invalid') {
+    const reparsed = parseRuntimeShippingConfig(parsed.raw, i18n);
+    return reparsed.status === 'invalid' ? reparsed.error : issue.reason;
+  }
+  if (issue.source === 'build-time') {
+    return validateBuildTimeShipping(buildTime, i18n) ?? issue.reason;
+  }
+  return issue.reason;
 }
 
 // ── Serialization and guarded saves ──────────────────────────────────────────
@@ -742,6 +873,7 @@ export function migrationCandidate(
   buildTime: ShippingConfig,
   legacyEnabled: boolean | null,
   currency: string,
+  i18n: ShippingTranslator = ENGLISH,
 ): ShippingFormModel {
   return {
     enabled: legacyEnabled ?? buildTime.enabled,
@@ -749,7 +881,7 @@ export function migrationCandidate(
     packageWeightValue: '',
     zones: buildTime.zones.map((zone, index) => ({
       token: nextToken('z'),
-      name: zone.name ?? legacyZoneName(zone.countries, index),
+      name: zone.name ?? legacyZoneName(zone.countries, index, i18n),
       countries: [...zone.countries],
       freeOverValue: zone.freeOverCents == null ? '' : amountToValue(zone.freeOverCents, currency),
       rates: zone.rates.map((rate) => ({
@@ -778,10 +910,16 @@ export function migrationCandidate(
 
 /** Deterministic name for a legacy zone: the country for a single-country zone,
  *  "Rest of world" for a catch-all, and a positional fallback otherwise. */
-export function legacyZoneName(countries: string[], index: number): string {
-  if (countries.length === 1 && countries[0] === CATCH_ALL) return 'Rest of world';
+export function legacyZoneName(
+  countries: string[],
+  index: number,
+  { t }: ShippingTranslator = ENGLISH,
+): string {
+  if (countries.length === 1 && countries[0] === CATCH_ALL) {
+    return t('adminSettings.shipping.restOfWorld');
+  }
   if (countries.length === 1 && isCountryCode(countries[0]!)) return countryName(countries[0]!);
-  return `Zone ${index + 1}`;
+  return t('adminSettings.shipping.zoneFallbackName', { number: index + 1 });
 }
 
 // ── Form parsing ─────────────────────────────────────────────────────────────
@@ -806,6 +944,7 @@ const splitTokens = (raw: string, cap: number) =>
 export function parseShippingForm(
   form: FormLike,
   options: { currency: string; unit: WeightUnit },
+  i18n: ShippingTranslator = ENGLISH,
 ): {
   model: ShippingFormModel;
   document: Omit<RuntimeShippingConfig, 'schema' | 'revision'>;
@@ -822,7 +961,10 @@ export function parseShippingForm(
     const parsed = toGrams(packageWeightValue, unit);
     if (parsed.status === 'ok') packageWeightGrams = parsed.grams;
     else if (parsed.status === 'error') {
-      errors.push({ field: 'packageWeight', message: weightErrorMessage(parsed.reason, unit) });
+      errors.push({
+        field: 'packageWeight',
+        message: weightErrorMessage(parsed.reason, unit, i18n),
+      });
     }
   }
 
@@ -844,7 +986,11 @@ export function parseShippingForm(
     if (freeOverValue !== '') {
       const major = Number(freeOverValue);
       if (!Number.isFinite(major) || major < 0) {
-        errors.push({ zoneIndex, field: 'freeOver', message: 'Enter an amount above zero.' });
+        errors.push({
+          zoneIndex,
+          field: 'freeOver',
+          message: i18n.t('adminSettings.shippingErrors.amountAboveZero'),
+        });
       } else {
         freeOverCents = toMinorUnits(major, currency);
       }
@@ -890,8 +1036,8 @@ export function parseShippingForm(
               field: 'upTo',
               message:
                 parsed.status === 'blank'
-                  ? 'Enter a maximum weight.'
-                  : weightErrorMessage(parsed.reason, unit),
+                  ? i18n.t('adminSettings.shippingErrors.enterMaxWeight')
+                  : weightErrorMessage(parsed.reason, unit, i18n),
             });
             upToGrams = Number.NaN;
           }
@@ -931,11 +1077,14 @@ export function parseShippingForm(
   };
 
   errors.push(
-    ...validateShippingDocument({
-      schema: SHIPPING_SCHEMA_VERSION,
-      revision: revision + 1,
-      ...document,
-    }),
+    ...validateShippingDocument(
+      {
+        schema: SHIPPING_SCHEMA_VERSION,
+        revision: revision + 1,
+        ...document,
+      },
+      i18n,
+    ),
   );
 
   return {
@@ -954,16 +1103,17 @@ export function parseShippingForm(
 export function weightErrorMessage(
   reason: 'not_number' | 'negative' | 'precision' | 'over_limit',
   unit: WeightUnit,
+  { t }: ShippingTranslator = ENGLISH,
 ): string {
   switch (reason) {
     case 'negative':
-      return 'Weight cannot be negative.';
+      return t('adminSettings.shippingErrors.weightNegative');
     case 'precision':
-      return `Too many decimal places for ${unit}.`;
+      return t('adminSettings.shippingErrors.weightPrecision', { unit });
     case 'over_limit':
-      return 'That weight is too heavy for parcel shipping.';
+      return t('adminSettings.shippingErrors.weightOverLimit');
     default:
-      return 'Enter a weight as a number.';
+      return t('adminSettings.shippingErrors.weightNotNumber');
   }
 }
 
