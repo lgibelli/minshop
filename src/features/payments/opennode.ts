@@ -12,7 +12,7 @@ import {
   pendingToPaidOrder,
 } from './lightning/pending';
 import { toMajorUnits } from '../../money';
-import { storeI18n } from '../../i18n';
+import { storeI18n } from '../../i18n/index.ts';
 
 /**
  * OpenNode — hosted Lightning checkout (custodial processor). Behaves like Stripe:

@@ -1,5 +1,5 @@
 import type { ProductFields } from './db';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { toMinorUnits } from '../../money';
 import { toGrams, type WeightUnit } from '../shipping/weight';
 

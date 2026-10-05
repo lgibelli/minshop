@@ -14,9 +14,9 @@
  * storefront speaks (both import-free for the same reason) and the pure money
  * helper, through the catalog-free formatter core itself uses (i18n/format).
  */
-import { storefront } from '../../../i18n/messages/en/storefront';
-import { common } from '../../../i18n/messages/en/common';
-import { createTranslator, type Message } from '../../../i18n/format';
+import { storefront } from '../../../i18n/messages/en/storefront.ts';
+import { common } from '../../../i18n/messages/en/common.ts';
+import { createTranslator, type Message } from '../../../i18n/format.ts';
 
 /** The request translator's type, named through the global Locals so that no
  *  import reaches the translator core. */

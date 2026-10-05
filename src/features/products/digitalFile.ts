@@ -1,5 +1,5 @@
 import type { StorageProvider } from '../storage/provider.ts';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED = new Map<string, Set<string>>([

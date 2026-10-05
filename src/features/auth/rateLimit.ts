@@ -1,5 +1,5 @@
 import type { RateLimit } from '@cloudflare/workers-types';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 export type RateLimitBucket = 'auth' | 'checkout' | 'search';
 

@@ -4,7 +4,7 @@
 // value bound. The clause is shared by the list and the count query, so the
 // pager can't advertise pages the filter has already excluded.
 
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { LOW_STOCK, type StockState } from './stock';
 
 export interface ProductFilters {

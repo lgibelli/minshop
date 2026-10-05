@@ -1,5 +1,5 @@
 import { formatPrice, getConfig } from '../../config';
-import { storeI18n, type I18n } from '../../i18n';
+import { storeI18n, type I18n } from '../../i18n/index.ts';
 import type { Order, OrderItemWithImage, ShippingAddress } from '../orders/db';
 import { orderReference } from '../orders/number';
 import {

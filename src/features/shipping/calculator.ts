@@ -11,7 +11,7 @@
  * (EasyPost/Shippo) later without touching callers.
  */
 
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 /** The synthesized free-shipping option's label in `i18n`'s language: what a quote
  *  shows the shopper (and Stripe), so a configured rate must not collide with it. */

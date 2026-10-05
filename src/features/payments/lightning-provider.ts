@@ -14,7 +14,7 @@ import {
   pendingToPaidOrder,
 } from './lightning/pending';
 import { getConfig } from '../../config';
-import { storeI18n } from '../../i18n';
+import { storeI18n } from '../../i18n/index.ts';
 
 export interface MintLightningOrderInput {
   origin: string;

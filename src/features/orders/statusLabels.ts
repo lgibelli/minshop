@@ -1,4 +1,4 @@
-import { enI18n, type I18n, type MessageKey } from '../../i18n/core';
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core.ts';
 
 // Display labels for stored order states. The stored values stay codes: filters,
 // sort links, the CSV export, and the database all keep using them. Only what a

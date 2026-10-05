@@ -5,7 +5,7 @@ import { orderByClause, parseStoreSortQuery, storeSorts } from '../products/sort
 import { MAX_PUBLIC_PAGE, paginate, queryHref } from '../../pagination';
 import { addCacheTags, productCacheTags } from '../cache/tags';
 import type { ImageDelivery } from '../products/image';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { buildProductCard } from './productCard';
 import type {
   CatalogPageModel,

@@ -1,4 +1,4 @@
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { parsePublicId } from '../ids/publicId';
 
 /** Parsed category form fields (slug + parent resolved by the endpoint). */

@@ -1,4 +1,4 @@
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 // Whitelisted sort columns. The query param `sort` maps to a fixed column name
 // here, so user input is never interpolated into SQL.

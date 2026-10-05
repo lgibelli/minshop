@@ -38,7 +38,7 @@ import { indexProduct, unindexProduct } from '../../../../features/search';
 import { parsePublicId } from '../../../../features/ids/publicId';
 import { CACHE_TAG } from '../../../../features/cache/tags';
 import { purgeCacheTags } from '../../../../features/cache/purge';
-import type { I18n } from '../../../../i18n/core';
+import type { I18n } from '../../../../i18n/core.ts';
 
 export const prerender = false;
 

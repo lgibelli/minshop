@@ -1,4 +1,4 @@
-import { storeI18n, type I18n } from '../../i18n';
+import { storeI18n, type I18n } from '../../i18n/index.ts';
 import type { EmailMessage } from './provider';
 import { PALETTE, emailShell, emailButton } from './layout';
 

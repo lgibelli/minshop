@@ -41,7 +41,7 @@ import { purgeStockProductCache } from '../../features/cache/purge';
 import { lifecycleActive } from '../../features/digitalDelivery/rollout.ts';
 import { mintLightningOrder } from '../../features/payments/lightning-provider';
 import { getLightningBackend } from '../../features/payments/lightning';
-import type { I18n } from '../../i18n';
+import type { I18n } from '../../i18n/index.ts';
 
 export const prerender = false;
 

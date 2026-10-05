@@ -11,7 +11,7 @@ import { resolveRequiredOrderEmail } from '../../email/orderPolicy';
 import { deliverOrderNotifications } from '../../email/outbox';
 import type { StoreSettings } from '../../settings/db';
 import { purgeStockProductCache } from '../../cache/purge';
-import { enI18n, type I18n } from '../../../i18n/core';
+import { enI18n, type I18n } from '../../../i18n/core.ts';
 
 // Settlement logic for the self-rendered /pay page, one function per method. Kept
 // here (beside the views) so the route stays a thin dispatcher.

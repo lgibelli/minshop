@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { ADMIN_LOCALE_COOKIE, isLocale } from '../../../i18n';
+import { ADMIN_LOCALE_COOKIE, isLocale } from '../../../i18n/index.ts';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 

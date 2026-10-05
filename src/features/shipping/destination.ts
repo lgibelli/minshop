@@ -13,7 +13,7 @@
  */
 
 import type { StoreSettings } from '../settings/db';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { enabledMethods } from '../payments';
 import { stripeAllowedCountries } from '../payments/stripeCountries.ts';
 import { allowedCountries, hasCatchAllZone, type ShippingConfig } from './calculator';

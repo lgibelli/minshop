@@ -7,7 +7,7 @@
  * cannot load there (src/i18n/core.ts uses extensionless imports). They return
  * data and reason codes; this module turns them into words.
  */
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 import { MAX_UPLOAD_BYTES, UPLOAD_EXTENSIONS } from './upload';
 import type { AttachFailure } from './db';
 import type { MediaUsage } from './usage';

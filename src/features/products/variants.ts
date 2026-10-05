@@ -3,7 +3,7 @@ import { listProductImages } from './db';
 import { toMinorUnits } from '../../money';
 import { toGrams, type WeightUnit } from '../shipping/weight';
 import { withPublicId } from '../ids/publicId.ts';
-import { enI18n, type I18n } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 /** A purchasable variant (the SKU/inventory unit). A product has 0 or N. */
 export interface ProductVariant {

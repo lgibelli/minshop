@@ -7,7 +7,7 @@
 // purpose. Filtering one but not the other is the classic pagination bug — the
 // table shows 3 rows while the pager offers 12 pages of them.
 
-import { enI18n, type I18n, type MessageKey } from '../../i18n/core';
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core.ts';
 
 export interface OrderFilters {
   status: OrderStatusFilter | null;
