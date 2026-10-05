@@ -13,7 +13,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types';
 import {
-  FREE_SHIPPING_LABEL,
+  freeShippingLabel,
   type RatePricing,
   type ShippingConfig,
   type WeightBand,
@@ -21,14 +21,21 @@ import {
 import { CATCH_ALL, countryName, isCountryCode } from './countries.ts';
 import { toGrams, type WeightUnit } from './weight.ts';
 import { toMinorUnits } from '../../money.ts';
-import { enI18n, type I18n } from '../../i18n/core.ts';
+import { createI18n, enI18n, LOCALES, type I18n, type Locale } from '../../i18n/core.ts';
 
 /** The part of a translator this module uses: callers pass `Astro.locals.i18n`. */
-export type ShippingTranslator = Pick<I18n, 't'>;
+export type ShippingTranslator = Pick<I18n, 't' | 'intl'>;
 
 /** English for callers that pass no translator (unit tests, the per-request
  *  resolver and its logs). */
 const ENGLISH: ShippingTranslator = enI18n;
+
+/** The synthesized free option's label in every bundled language. Checkout names
+ *  it in the STORE locale, which an admin page in another language doesn't know,
+ *  so a rate may not take the label in any of them. */
+const FREE_LABELS = new Set(
+  (Object.keys(LOCALES) as Locale[]).map((l) => freeShippingLabel(createI18n(l)).toLowerCase()),
+);
 
 export const SHIPPING_CONFIG_KEY = 'shipping_config';
 
@@ -292,7 +299,9 @@ export function validateShippingDocument(
         errors.push({
           zoneIndex,
           field: 'countries',
-          message: t('adminSettings.shippingErrors.countryTaken', { country: countryName(cc) }),
+          message: t('adminSettings.shippingErrors.countryTaken', {
+            country: countryName(cc, i18n.intl),
+          }),
         });
       }
       countries.add(cc);
@@ -354,16 +363,14 @@ export function validateShippingDocument(
           field: 'label',
           message: t('adminSettings.shippingErrors.rateLabelTaken'),
         });
-      } else if (freeOver != null && label.toLowerCase() === FREE_SHIPPING_LABEL.toLowerCase()) {
+      } else if (freeOver != null && FREE_LABELS.has(label.toLowerCase())) {
         // The free option is synthesized under this exact label; a configured rate
         // sharing it would make the shopper's choice ambiguous at settlement.
         errors.push({
           zoneIndex,
           rateIndex,
           field: 'label',
-          message: t('adminSettings.shippingErrors.freeLabelReserved', {
-            label: FREE_SHIPPING_LABEL,
-          }),
+          message: t('adminSettings.shippingErrors.freeLabelReserved', { label }),
         });
       } else {
         labels.add(label.toLowerCase());

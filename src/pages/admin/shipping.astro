@@ -36,7 +36,7 @@ const parsed = settings?.shippingConfig ?? { status: 'absent' as const };
 const invalidFingerprint =
   parsed.status === 'invalid' ? await fingerprintRawConfig(parsed.raw) : null;
 
-const countries = countryOptions();
+const countries = countryOptions(Astro.locals.i18n.intl);
 let errors: ShippingValidationError[] = [];
 let notice: string | null = null;
 let conflict = false;

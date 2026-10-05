@@ -48,9 +48,6 @@ export const storefront = {
     other: '{count} shown · page {page}/{totalPages}',
   },
   'storefront.catalog.sort': 'Sort',
-  'storefront.catalog.sortNewest': 'Newest',
-  'storefront.catalog.sortPrice': 'Price',
-  'storefront.catalog.sortName': 'Name',
 
   // /categories/<slug>
   'storefront.category.empty': 'No products in this category yet.',
@@ -64,6 +61,8 @@ export const storefront = {
   // Precedes the lowest variant price: "from $24.00".
   'storefront.product.priceFrom': 'from',
   'storefront.product.share': 'Share',
+  // Swapped in by the share button's script after it copies the link.
+  'storefront.product.linkCopied': 'Link copied',
   'storefront.product.details': 'Details',
   'storefront.product.youMayAlsoLike': 'You may also like',
   'storefront.product.related': 'Related',

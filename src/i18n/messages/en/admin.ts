@@ -79,4 +79,9 @@ export const admin = {
   'admin.access.required': 'Cloudflare Access authentication required.',
   'admin.access.notConfigured':
     'Cloudflare Access is not configured: set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.',
+  'admin.access.invalidToken': 'Invalid Access token.',
+
+  // Admin gate responses (src/middleware.ts): plain-text 401s for admin APIs.
+  'admin.gate.authRequired': 'Authentication required.',
+  'admin.gate.notSetUp': 'Admin not set up yet — complete /admin/setup first.',
 } satisfies Record<`admin.${string}`, Message>;

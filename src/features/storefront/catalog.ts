@@ -1,11 +1,11 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { listProducts, countProducts } from '../products/db';
 import { listCategories, childrenOf } from '../categories/db';
-import { orderByClause, parseStoreSortQuery, STORE_SORTS } from '../products/sort';
+import { orderByClause, parseStoreSortQuery, storeSorts } from '../products/sort';
 import { MAX_PUBLIC_PAGE, paginate, queryHref } from '../../pagination';
 import { addCacheTags, productCacheTags } from '../cache/tags';
 import type { ImageDelivery } from '../products/image';
-import { enI18n, type I18n, type MessageKey } from '../../i18n/core';
+import { enI18n, type I18n } from '../../i18n/core';
 import { buildProductCard } from './productCard';
 import type {
   CatalogPageModel,
@@ -28,19 +28,6 @@ const PAGE_SIZE = 24;
 /** Matches the card slot in the default three-column grid. */
 const CARD_SIZES = '(min-width: 1024px) 352px, calc(50vw - 36px)';
 
-/** Translated labels for the storefront sorts, keyed by `sort`. */
-const SORT_LABELS: Record<string, MessageKey> = {
-  newest: 'storefront.catalog.sortNewest',
-  price: 'storefront.catalog.sortPrice',
-  name: 'storefront.catalog.sortName',
-};
-
-/** A sort added to STORE_SORTS without a message keeps its English label. */
-function sortLabel(option: { sort: string; label: string }, i18n: I18n): string {
-  const key = SORT_LABELS[option.sort];
-  return key ? i18n.t(key) : option.label;
-}
-
 /**
  * Sort links deliberately drop `page`: changing the ordering while holding page
  * 7 lands the shopper in the middle of a list they have not seen.
@@ -58,13 +45,13 @@ export function buildSortModel(
   i18n: I18n = enI18n,
 ): StorefrontSortModel {
   return {
-    options: STORE_SORTS.map((option) => {
+    options: storeSorts(i18n).map((option) => {
       const current = sort === option.sort;
       // Re-clicking the active field flips it; an inactive field applies its own
       // natural direction (price ascending, newest descending).
       const nextDir = current ? (dir === 'asc' ? 'desc' : 'asc') : option.dir;
       return {
-        label: sortLabel(option, i18n),
+        label: option.label,
         href: queryHref(base, { sort: option.sort, dir: nextDir }),
         current,
         direction: current ? dir : null,

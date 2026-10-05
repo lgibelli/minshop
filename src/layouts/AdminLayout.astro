@@ -2,6 +2,7 @@
 import { getConfig } from '../config';
 import { paymentsInDemoMode } from '../features/payments';
 import { shippingFor } from '../features/shipping/effective';
+import { localizedShippingIssue } from '../features/shipping/settings';
 import { env } from 'cloudflare:workers';
 import { countUnresolvedInventoryExceptions } from '../features/orders/db';
 import { LOCALES } from '../i18n/core';
@@ -46,6 +47,15 @@ const pageTitle = title
 // out that they cannot take orders. Resolution is already loaded for this request,
 // so this costs no query.
 const shippingIssue = shippingFor(Astro.locals.settings).issue;
+// Resolution reasons are English (they feed the logs); re-derive in the admin's language.
+const shippingIssueReason =
+  shippingIssue &&
+  localizedShippingIssue(
+    shippingIssue,
+    Astro.locals.settings?.shippingConfig ?? { status: 'absent' },
+    config.shipping,
+    Astro.locals.i18n,
+  );
 const inventoryExceptionCount = await countUnresolvedInventoryExceptions(env.DB);
 
 const nav: { key: Section; label: string; href: string }[] = [
@@ -197,7 +207,7 @@ const currentLabel = nav.find((n) => n.key === active)?.label ?? t('admin.nav.me
               class="mb-6 flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 transition hover:border-red-500"
             >
               <span>
-                <Fragment set:html={th('admin.layout.shippingBlocked', { reason: shippingIssue.reason })} />
+                <Fragment set:html={th('admin.layout.shippingBlocked', { reason: shippingIssueReason ?? '' })} />
               </span>
               <span aria-hidden="true">&rarr;</span>
             </a>

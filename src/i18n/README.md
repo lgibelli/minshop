@@ -22,10 +22,15 @@ switch the admin language from the sidebar; the choice is stored in a cookie.
 ## Writing translatable code
 
 Catalogs live in `src/i18n/messages/<locale>/<area>.ts`. Every key is prefixed by
-its area (`checkout.placeOrder`), so the files never collide.
+its area (`checkout.placeOrder`), so the files never collide. `core.ts` binds
+the catalogs; the formatting itself (`format.ts`) has no catalog imports, for
+code that must not pull every locale into its import graph.
 
 - **Astro pages and components:** `const { t } = Astro.locals.i18n;` then
   `{t('cart.empty')}`, `placeholder={t('search.placeholder')}`.
+- **Storefront themes and controls** never read request context: they take an
+  optional `i18n` prop and resolve it with `storefrontI18n(Astro.props.i18n)`
+  (English when absent). See CUSTOMIZING.md → Text and translations.
 - **Params:** `'Hello {name}'` → `t('account.greeting', { name })`.
 - **Plurals:** `{ one: '{count} item', other: '{count} items' }` →
   `t('cart.items', { count })`. Translations add the CLDR forms their language
