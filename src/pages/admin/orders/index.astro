@@ -254,7 +254,7 @@ const refundErrorLabel = (code: string) =>
     action="/admin/orders"
     active={filtered}
     count={matchCount}
-    noun="order"
+    countLabel={t('adminOrders.list.matchCount', { count: matchCount })}
     hidden={{ sort: sort ?? undefined, dir: dir ?? undefined }}
     selects={[
       {

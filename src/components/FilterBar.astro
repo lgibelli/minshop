@@ -31,21 +31,12 @@ interface Props {
    * t('adminOrders.list.count', { count }) → "3 orders". Defaults to "N results".
    */
   countLabel?: string;
-  /** @deprecated English-only ("N <noun>s"); pass `countLabel` instead. */
-  noun?: string;
 }
 
-const { action, selects, search, hidden = {}, active, count, countLabel, noun } = Astro.props;
+const { action, selects, search, hidden = {}, active, count, countLabel } = Astro.props;
 const { t } = Astro.locals.i18n;
-// `noun` predates translation: it keeps its English "N nouns" output until every
-// caller passes a translated `countLabel`.
 const countText =
-  count === undefined
-    ? ''
-    : (countLabel ??
-      (noun
-        ? `${count} ${noun}${count === 1 ? '' : 's'}`
-        : t('adminSettings.filterBar.results', { count })));
+  count === undefined ? '' : (countLabel ?? t('adminSettings.filterBar.results', { count }));
 ---
 
 <form method="GET" action={action} class="mb-6 flex flex-wrap items-end gap-3" data-filter-bar>

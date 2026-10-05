@@ -366,7 +366,7 @@ const willEmailCustomer =
           </p>
           {order.tracking_number && (
             <p>
-              {carrierName(order.tracking_carrier)} ·{' '}
+              {carrierName(order.tracking_carrier, i18n)} ·{' '}
               {trackUrl ? (
                 <a href={trackUrl} target="_blank" rel="noopener" class="text-accent hover:underline">
                   {order.tracking_number}
@@ -558,7 +558,7 @@ const willEmailCustomer =
             <span class="block text-xs uppercase tracking-widest text-gray-400">{t('adminOrders.detail.carrier')}</span>
             <select name="carrier" class="mt-1 rounded-md border border-line bg-paper px-3 py-2">
               {CARRIERS.map((c) => (
-                <option value={c.code}>{c.name}</option>
+                <option value={c.code}>{carrierName(c.code, i18n)}</option>
               ))}
             </select>
           </label>

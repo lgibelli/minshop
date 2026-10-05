@@ -20,6 +20,7 @@ export const adminOrders = {
   'adminOrders.filter.methodDemo': 'Demo',
 
   // Order list (admin/orders/index.astro).
+  'adminOrders.list.matchCount': { one: '{count} order', other: '{count} orders' },
   'adminOrders.list.title': 'Orders',
   'adminOrders.list.lookupNoMatch': 'No order matches “{query}”.',
   'adminOrders.list.inventoryExceptionsTitle': {

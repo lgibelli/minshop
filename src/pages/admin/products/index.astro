@@ -79,7 +79,7 @@ const arrow = (col: string) => (sort === col ? (dir === 'asc' ? ' ↑' : ' ↓')
     action="/admin/products"
     active={filtered}
     count={matchCount}
-    noun="product"
+    countLabel={t('adminProducts.list.matchCount', { count: matchCount })}
     hidden={{ sort: sort ?? undefined, dir: dir ?? undefined }}
     search={{ name: 'q', value: filters.q, placeholder: t('adminProducts.list.searchPlaceholder') }}
     selects={[
