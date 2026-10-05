@@ -31,7 +31,8 @@ function nonNegativeInteger(value: FormDataEntryValue | null): number {
 // The wire-format cursor is the LAST PROCESSED product's prod_ public ID ('' =
 // start): admin output never carries a numeric row id, while the keyset itself
 // stays on the integer id internally.
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+  const { t } = locals.i18n;
   const wantsJson =
     request.headers.get('x-requested-with') === 'fetch' ||
     request.headers.get('accept')?.includes('application/json');
@@ -51,10 +52,10 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const settings = await getStoreSettings(env.DB);
   const provider = settings.searchProvider ?? getConfig().search.provider;
   if (provider !== 'vector') {
-    return fail('Semantic search is off — enable it in Settings first.');
+    return fail(t('adminProducts.reindex.searchOff'));
   }
   if (!env.AI || !env.VECTORIZE) {
-    return fail('Semantic search is unavailable — add the AI and VECTORIZE bindings first.');
+    return fail(t('adminProducts.reindex.unavailable'));
   }
 
   const form = await request.formData();
@@ -87,14 +88,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       return Response.json({ processed, total, nextCursor, done });
     }
     return done
-      ? back(`Reindexed ${processed} product(s) into the semantic search index.`)
+      ? back(t('adminProducts.reindex.done', { count: processed }))
       : back(
-          `Reindexed ${processed} of ${total} products. Continue to process the next batch.`,
+          t('adminProducts.reindex.progress', { processed, count: total }),
           nextCursor,
           processed,
         );
   } catch (err) {
-    const message = `Reindex failed: ${(err as Error).message}`;
+    const message = t('adminProducts.reindex.failed', { error: (err as Error).message });
     return wantsJson
       ? Response.json({ error: message }, { status: 500 })
       : back(message, cursorPublicId, processedBefore);

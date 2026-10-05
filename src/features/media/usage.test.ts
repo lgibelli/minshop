@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { usageLinks, describeUsage, isUnused, emptyUsage, type MediaUsage } from './usage';
+import { isUnused, emptyUsage, type MediaUsage } from './usage';
+import { usageLinks, describeUsage } from './text';
 
 const usage = (partial: Partial<MediaUsage> = {}): MediaUsage => ({
   ...emptyUsage(),

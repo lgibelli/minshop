@@ -18,6 +18,7 @@ import { validateImage } from '../../../features/products/image';
 import { optimizeUpload } from '../../../features/products/imageOptimize';
 import { uploadMedia } from '../../../features/media/upload';
 import { attachMediaToProduct } from '../../../features/media/db';
+import { attachError } from '../../../features/media/text';
 import { getStorage, getFileStorage } from '../../../features/storage';
 import { uploadDigitalFile, validateDigitalFile } from '../../../features/products/digitalFile.ts';
 import { attachmentActive } from '../../../features/digitalDelivery/rollout.ts';
@@ -35,16 +36,20 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   // unsellable (every enabled zone prices by weight). Both come from settings the
   // request already loaded.
   const weightUnit = locals.settings?.weightUnit ?? 'g';
-  const parsed = parseProductForm(form, {
-    unit: weightUnit,
-    requireWeight: zonesRequireWeight(shippingFor(locals.settings).config),
-  });
+  const parsed = parseProductForm(
+    form,
+    {
+      unit: weightUnit,
+      requireWeight: zonesRequireWeight(shippingFor(locals.settings).config),
+    },
+    locals.i18n,
+  );
   if ('error' in parsed) return redirect(fail(parsed.error), 303);
 
   let mediaId: number | null = null;
   const file = form.get('image');
   if (file instanceof File && file.size > 0) {
-    const imgErr = validateImage(file);
+    const imgErr = validateImage(file, locals.i18n);
     if (imgErr) return redirect(fail(imgErr), 303);
     // Every upload becomes a library item, whichever screen it came from.
     const media = await uploadMedia(env.DB, getStorage(), await optimizeUpload(file), file.name);
@@ -53,7 +58,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
   const deliverable = form.get('deliverable');
   if (attachmentActive() && deliverable instanceof File && deliverable.size > 0) {
-    const fileError = validateDigitalFile(deliverable);
+    const fileError = validateDigitalFile(deliverable, locals.i18n);
     if (fileError) return redirect(fail(fileError), 303);
   }
 
@@ -76,7 +81,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
       // rather than reporting a failure while leaving a half-made product
       // behind for the merchant to trip over on the next attempt.
       await deleteProduct(env.DB, productId);
-      return redirect(fail(attached.error), 303);
+      return redirect(fail(attachError(attached.reason, locals.i18n)), 303);
     }
     await syncPrimaryImage(env.DB, productId); // promotes it to products.image_key
   }

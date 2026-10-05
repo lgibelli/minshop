@@ -1,5 +1,5 @@
 ---
-import { formatPrice } from '../config';
+import { formatPrice, getConfig } from '../config';
 import type { DailyTotal } from '../features/orders/db';
 
 interface Props {
@@ -7,6 +7,10 @@ interface Props {
 }
 
 const { data } = Astro.props;
+// Admin-only (the dashboard): prices follow the admin language.
+const { t, th, intl } = Astro.locals.i18n;
+const currency = getConfig().currency;
+const price = (cents: number) => formatPrice(cents, currency, intl);
 
 // SVG drawn in viewBox units (1 per day wide), stretched to fill via
 // preserveAspectRatio="none". Plain rects stretch cleanly — no JS, no rounded
@@ -22,10 +26,10 @@ const md = (day: string) => day.slice(5); // MM-DD
 <div>
   <div class="mb-3 flex items-baseline justify-between">
     <h2 class="text-xs uppercase tracking-widest text-faint">
-      Revenue &middot; last {data.length} days
+      <Fragment set:html={th('admin.chart.heading', { count: data.length })} />
     </h2>
     <span class="text-xs text-faint">
-      {formatPrice(total)} &middot; {orders} {orders === 1 ? 'order' : 'orders'}
+      <Fragment set:html={th('admin.chart.summary', { total: price(total), count: orders })} />
     </span>
   </div>
 
@@ -34,14 +38,14 @@ const md = (day: string) => day.slice(5); // MM-DD
     preserveAspectRatio="none"
     class="h-40 w-full"
     role="img"
-    aria-label={`Daily revenue for the last ${data.length} days`}
+    aria-label={t('admin.chart.ariaLabel', { count: data.length })}
   >
     {
       data.map((d, i) => {
         const h = (d.total_cents / max) * H;
         return (
           <rect x={i + 0.12} y={H - h} width={0.76} height={h} class="fill-brand">
-            <title>{`${d.day}: ${formatPrice(d.total_cents)} · ${d.orders} ${d.orders === 1 ? 'order' : 'orders'}`}</title>
+            <title>{t('admin.chart.barTitle', { day: d.day, total: price(d.total_cents), count: d.orders })}</title>
           </rect>
         );
       })

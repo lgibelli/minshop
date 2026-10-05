@@ -3,11 +3,14 @@ import { env } from 'cloudflare:workers';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Pagination from '../../../components/Pagination.astro';
 import { MEDIA_PAGE_SIZE, countMedia } from '../../../features/media/db';
-import { isUnused, usageLinks } from '../../../features/media/usage';
+import { isUnused } from '../../../features/media/usage';
+import { usageLinks } from '../../../features/media/text';
 import { mediaUrl } from '../../../features/media/url';
 import { loadMediaPage } from '../../api/admin/media';
 import { paginate, queryHref } from '../../../pagination';
 
+const { i18n } = Astro.locals;
+const { t } = i18n;
 const error = Astro.url.searchParams.get('error');
 
 // Count first so paginate() clamps an out-of-range ?page= to the last real page
@@ -17,25 +20,32 @@ const { page, offset, totalPages } = paginate(Astro.url.searchParams, total, MED
 const { items, usage, baseUrl } = await loadMediaPage(MEDIA_PAGE_SIZE, offset);
 const hrefFor = (p: number) => queryHref('/admin/media', { page: p > 1 ? p : undefined });
 
-const dateFmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
+const dateFmt = new Intl.DateTimeFormat(i18n.intl, { dateStyle: 'medium' });
 const formatDate = (iso: string) => dateFmt.format(new Date(`${iso.replace(' ', 'T')}Z`));
 
 /** Legacy rows backfilled from R2 have no size — show nothing, not "0 B". */
 function formatSize(bytes: number | null): string | null {
   if (bytes == null) return null;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const size = (n: number, digits = 0) =>
+    i18n.number(n, { useGrouping: false, minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (bytes < 1024) return t('adminProducts.media.sizeBytes', { size: size(bytes) });
+  if (bytes < 1024 * 1024) {
+    return t('adminProducts.media.sizeKilobytes', { size: size(Math.round(bytes / 1024)) });
+  }
+  return t('adminProducts.media.sizeMegabytes', { size: size(bytes / (1024 * 1024), 1) });
 }
+
+// "Used by {links}": the links are markup, so split the sentence at the
+// placeholder and let Astro render them wherever the translation puts them.
+const [usedByBefore, usedByAfter = ''] = t('adminProducts.media.usedBy').split('{links}');
 ---
 
-<AdminLayout title="Media" active="media">
+<AdminLayout title={t('adminProducts.media.title')} active="media">
   <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
     <div>
-      <h1 class="font-serif text-3xl tracking-tight">Media</h1>
+      <h1 class="font-serif text-3xl tracking-tight">{t('adminProducts.media.title')}</h1>
       <p class="mt-1 text-sm text-gray-500">
-        {total} file{total === 1 ? '' : 's'}. Deleting here removes the file everywhere —
-        it is refused while anything still uses it.
+        {t('adminProducts.media.summary', { count: total })}
       </p>
     </div>
   </div>
@@ -66,15 +76,15 @@ function formatSize(bytes: number | null): string | null {
       type="submit"
       class="rounded-md bg-brand px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-brand-hover"
     >
-      Upload
+      {t('adminProducts.media.upload')}
     </button>
-    <span class="text-xs text-gray-500">JPEG, PNG, WebP, or GIF. Max 5 MB each.</span>
+    <span class="text-xs text-gray-500">{t('adminProducts.media.uploadHint')}</span>
   </form>
 
   {
     items.length === 0 ? (
       <p class="py-12 text-center text-sm text-gray-500">
-        No files yet. Upload one above, or add a product image — every upload lands here.
+        {t('adminProducts.media.empty')}
       </p>
     ) : (
       <ul class="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
@@ -104,15 +114,15 @@ function formatSize(bytes: number | null): string | null {
                 {formatDate(m.created_at)}
                 {dimensions ? ` · ${dimensions}` : ''}
                 {size ? ` · ${size}` : ''}
-                {!m.mime_type && !size ? ' · Legacy image' : ''}
+                {!m.mime_type && !size ? ` · ${t('adminProducts.media.legacyImage')}` : ''}
               </p>
               <p class="text-xs text-gray-600">
                 {unused ? (
-                  <span class="text-gray-400">Unused</span>
+                  <span class="text-gray-400">{t('adminProducts.media.unused')}</span>
                 ) : (
                   <Fragment>
-                    Used by{' '}
-                    {usageLinks(entry!).map((link, index) => (
+                    {usedByBefore}
+                    {usageLinks(entry!, i18n).map((link, index) => (
                       <Fragment>
                         {index > 0 && ', '}
                         <a
@@ -124,6 +134,7 @@ function formatSize(bytes: number | null): string | null {
                         </a>
                       </Fragment>
                     ))}
+                    {usedByAfter}
                   </Fragment>
                 )}
               </p>
@@ -131,9 +142,10 @@ function formatSize(bytes: number | null): string | null {
                 <button
                   type="button"
                   data-copy-url={url}
+                  data-copied-label={t('adminProducts.media.copied')}
                   class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
                 >
-                  Copy URL
+                  {t('adminProducts.media.copyUrl')}
                 </button>
                 {unused && (
                   <form method="post" action={`/api/admin/media/${m.public_id}`}>
@@ -142,7 +154,7 @@ function formatSize(bytes: number | null): string | null {
                       type="submit"
                       class="text-xs uppercase tracking-widest text-red-600 hover:text-red-700"
                     >
-                      Delete
+                      {t('adminProducts.media.delete')}
                     </button>
                   </form>
                 )}
@@ -167,7 +179,7 @@ function formatSize(bytes: number | null): string | null {
     try {
       await navigator.clipboard.writeText(url);
       const original = button.textContent;
-      button.textContent = 'Copied';
+      button.textContent = button.dataset.copiedLabel ?? original;
       setTimeout(() => {
         button.textContent = original;
       }, 1200);

@@ -14,16 +14,20 @@ const counts = await productCounts(env.DB);
 // Categories have no draft state, so deletion is the ONLY way one becomes
 // unavailable — which makes this the easiest broken link to create silently.
 const menuRefs = await menuReferencesFor(env.DB, 'category', rows.map((r) => r.id));
+const { t } = Astro.locals.i18n;
+// confirm() receives the message inside a single-quoted JS string in an
+// attribute, so a translation's apostrophe must not end that string.
+const jsString = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 ---
 
-<AdminLayout title="Categories" active="categories">
+<AdminLayout title={t('adminProducts.categories.title')} active="categories">
   <div class="mb-8 flex items-center justify-between">
-    <h1 class="font-serif text-3xl tracking-tight">Categories</h1>
+    <h1 class="font-serif text-3xl tracking-tight">{t('adminProducts.categories.title')}</h1>
     <a
       href="/admin/categories/new"
       class="rounded-md bg-brand px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-brand-hover"
     >
-      New category
+      {t('adminProducts.categories.newCategory')}
     </a>
   </div>
 
@@ -31,10 +35,10 @@ const menuRefs = await menuReferencesFor(env.DB, 'category', rows.map((r) => r.i
     <table class="admin-table w-full text-left text-sm sm:min-w-[40rem]">
     <thead>
       <tr class="border-b border-line text-xs uppercase tracking-widest text-gray-400">
-        <th class="py-3 pr-4 font-normal">Name</th>
-        <th class="py-3 pr-4 font-normal">Slug</th>
-        <th class="py-3 pr-4 font-normal">Products</th>
-        <th class="py-3 text-right font-normal">Actions</th>
+        <th class="py-3 pr-4 font-normal">{t('adminProducts.categories.colName')}</th>
+        <th class="py-3 pr-4 font-normal">{t('adminProducts.categories.colSlug')}</th>
+        <th class="py-3 pr-4 font-normal">{t('adminProducts.categories.colProducts')}</th>
+        <th class="py-3 text-right font-normal">{t('adminProducts.categories.colActions')}</th>
       </tr>
     </thead>
     <tbody>
@@ -51,25 +55,27 @@ const menuRefs = await menuReferencesFor(env.DB, 'category', rows.map((r) => r.i
                 {c.name}
               </a>
             </td>
-            <td data-label="Slug" class="py-3 pr-4 text-gray-500">{c.slug}</td>
-            <td data-label="Products" class="py-3 pr-4 tabular-nums text-gray-500">{counts.get(c.id) ?? 0}</td>
+            <td data-label={t('adminProducts.categories.colSlug')} class="py-3 pr-4 text-gray-500">{c.slug}</td>
+            <td data-label={t('adminProducts.categories.colProducts')} class="py-3 pr-4 tabular-nums text-gray-500">
+              {counts.get(c.id) ?? 0}
+            </td>
             <td data-label="" class="py-3 text-right">
               <div class="flex justify-end gap-4 text-xs uppercase tracking-widest">
                 <a href={`/admin/categories/${c.public_id}/edit`} class="text-accent hover:underline">
-                  Edit
+                  {t('adminProducts.categories.edit')}
                 </a>
                 <form
                   method="POST"
                   action={`/api/admin/categories/${c.public_id}`}
-                  onsubmit={`return confirm('${
+                  onsubmit={`return confirm('${jsString(
                     menuRefs.has(c.id)
-                      ? 'This category is linked from your navigation. Deleting it hides that link on the storefront. Sub-categories move up to its parent. Continue?'
-                      : 'Delete this category? Sub-categories move up to its parent.'
-                  }')`}
+                      ? t('adminProducts.categories.confirmDeleteLinked')
+                      : t('adminProducts.categories.confirmDelete'),
+                  )}')`}
                 >
                   <input type="hidden" name="_action" value="delete" />
                   <button type="submit" class="text-red-600 hover:underline">
-                    Delete
+                    {t('adminProducts.categories.delete')}
                   </button>
                 </form>
               </div>
@@ -81,7 +87,7 @@ const menuRefs = await menuReferencesFor(env.DB, 'category', rows.map((r) => r.i
         rows.length === 0 && (
           <tr>
             <td colspan="4" class="py-8 text-center text-gray-400">
-              No categories yet.
+              {t('adminProducts.categories.empty')}
             </td>
           </tr>
         )

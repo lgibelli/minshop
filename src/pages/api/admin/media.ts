@@ -9,7 +9,8 @@ import {
 } from '../../../features/media/db';
 import { mediaUsageForIds, isUnused } from '../../../features/media/usage';
 import { mediaUrl } from '../../../features/media/url';
-import { uploadMedia, validateUpload } from '../../../features/media/upload';
+import { uploadMedia } from '../../../features/media/upload';
+import { validateUpload } from '../../../features/media/text';
 import { optimizeUpload } from '../../../features/products/imageOptimize';
 import { prewarmImageTransforms } from '../../../features/products/image';
 import { getSetting } from '../../../features/settings/db';
@@ -115,12 +116,12 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
         })
       : redirect(`/admin/media?error=${encodeURIComponent(msg)}`, 303);
 
-  if (files.length === 0) return fail('Choose at least one image.');
+  if (files.length === 0) return fail(locals.i18n.t('adminProducts.media.chooseAtLeastOne'));
 
   // Validate everything before storing anything, so a bad file in a multi-select
   // doesn't leave half the batch uploaded.
   for (const file of files) {
-    const err = validateUpload(file);
+    const err = validateUpload(file, locals.i18n);
     if (err) return fail(err);
   }
 

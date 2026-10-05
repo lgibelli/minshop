@@ -11,6 +11,7 @@ interface Props {
 }
 
 const { action, submitLabel, category = null, parentOptions, error = null } = Astro.props;
+const { t } = Astro.locals.i18n;
 const inputClass =
   'mt-1 w-full rounded-md border border-line px-3 py-2 focus:border-brand focus:outline-none';
 ---
@@ -25,21 +26,21 @@ const inputClass =
   }
 
   <div>
-    <label class="block text-sm font-medium" for="name">Name</label>
+    <label class="block text-sm font-medium" for="name">{t('adminProducts.categoryForm.name')}</label>
     <input id="name" name="name" type="text" required value={category?.name ?? ''} class={inputClass} />
   </div>
 
   <div>
     <label class="block text-sm font-medium" for="slug">
-      Slug <span class="text-faint">(URL — blank to auto-generate from name)</span>
+      {t('adminProducts.categoryForm.slug')} <span class="text-faint">{t('adminProducts.categoryForm.slugHint')}</span>
     </label>
-    <input id="slug" name="slug" type="text" value={category?.slug ?? ''} placeholder="auto-from-name" class={inputClass} />
+    <input id="slug" name="slug" type="text" value={category?.slug ?? ''} placeholder={t('adminProducts.categoryForm.slugPlaceholder')} class={inputClass} />
   </div>
 
   <div>
-    <label class="block text-sm font-medium" for="parent_id">Parent category</label>
+    <label class="block text-sm font-medium" for="parent_id">{t('adminProducts.categoryForm.parent')}</label>
     <select id="parent_id" name="parent_id" class={inputClass}>
-      <option value="">— none (top level) —</option>
+      <option value="">{t('adminProducts.categoryForm.noParent')}</option>
       {
         // Values are cat_ public IDs — resolved back to row ids server-side.
         parentOptions.map((o) => (
@@ -55,6 +56,6 @@ const inputClass =
     <button type="submit" class="rounded-md bg-brand px-5 py-2 font-medium text-on-brand hover:bg-brand-hover">
       {submitLabel}
     </button>
-    <a href="/admin/categories" class="rounded-md border border-line px-5 py-2 hover:bg-surface">Cancel</a>
+    <a href="/admin/categories" class="rounded-md border border-line px-5 py-2 hover:bg-surface">{t('adminProducts.categoryForm.cancel')}</a>
   </div>
 </form>

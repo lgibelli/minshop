@@ -1,4 +1,5 @@
 import type { StorageProvider } from '../storage/provider.ts';
+import { enI18n, type I18n } from '../../i18n/core';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED = new Map<string, Set<string>>([
@@ -10,12 +11,13 @@ const ALLOWED = new Map<string, Set<string>>([
   ['text/plain', new Set(['txt'])],
 ]);
 
-export function validateDigitalFile(file: File): string | null {
-  if (file.size < 1) return 'Choose a non-empty deliverable file.';
-  if (file.size > MAX_FILE_BYTES) return 'Deliverable files must be 25 MB or smaller.';
+/** A user-facing error (in `i18n`'s language) for an unacceptable deliverable, else null. */
+export function validateDigitalFile(file: File, i18n: I18n = enI18n): string | null {
+  if (file.size < 1) return i18n.t('adminProducts.deliverable.empty');
+  if (file.size > MAX_FILE_BYTES) return i18n.t('adminProducts.deliverable.tooLarge');
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (!ALLOWED.get(file.type)?.has(ext)) {
-    return 'Use a PDF, ZIP, EPUB, MP3, M4A, or plain-text file.';
+    return i18n.t('adminProducts.deliverable.badType');
   }
   return null;
 }

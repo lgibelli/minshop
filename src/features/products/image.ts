@@ -1,5 +1,5 @@
 import { mediaUrl } from '../media/url';
-import { validateUpload } from '../media/upload';
+import { validateUpload } from '../media/text';
 
 export type ImageDelivery = 'original' | 'cloudflare';
 export type ProductImageUsage = 'card' | 'detail' | 'thumbnail';
