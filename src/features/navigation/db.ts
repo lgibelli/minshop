@@ -1,6 +1,7 @@
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
 import { catalogPath, resolveHomePath } from '../settings/home.ts';
 import { withPublicId } from '../ids/publicId.ts';
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core.ts';
 
 export type MenuLocation = 'header' | 'footer';
 export type MenuTargetType = 'home' | 'catalog' | 'page' | 'product' | 'category';
@@ -28,16 +29,26 @@ export const MENU_TARGET_TYPES: readonly MenuTargetType[] = [
 export const MENU_CAPS: Record<MenuLocation, number> = { header: 6, footer: 50 };
 
 /**
- * What Home and Catalog are called when no override is set.
+ * What Home and Catalog are called when no override is set, in English.
  *
- * Exported so the resolution query and the admin form read the same values —
- * admin tells the merchant what a blank label will fall back to, and that
- * promise has to match what the storefront actually renders.
+ * The resolution query uses these only to give singletons a non-NULL name (so
+ * `targetExists` holds); the text a person reads comes from singletonLabel(),
+ * in the store's language. The admin form reads the same function, so what it
+ * says a blank label falls back to matches what the storefront renders.
  */
 export const SINGLETON_LABELS: Record<'home' | 'catalog', string> = {
   home: 'Home',
   catalog: 'Shop',
 };
+
+const SINGLETON_LABEL_KEYS: Record<'home' | 'catalog', MessageKey> = {
+  home: 'adminContent.navigation.singletonHome',
+  catalog: 'adminContent.navigation.singletonCatalog',
+};
+
+export function singletonLabel(type: 'home' | 'catalog', i18n: I18n = enI18n): string {
+  return i18n.t(SINGLETON_LABEL_KEYS[type]);
+}
 
 /** Label overrides are merchant free text; bound it before it reaches the DOM. */
 export const MAX_MENU_LABEL = 60;
@@ -172,8 +183,20 @@ export function resolveMenuHref(
   }
 }
 
-/** Row → renderable item. `text` is the override, else the target's own name. */
-export function toMenuItem(row: MenuItemRow, homePage: string | null | undefined): MenuItem {
+/**
+ * Row → renderable item. `text` is the override, else the target's own name.
+ * Home and Catalog have no row to name them, so theirs comes from the
+ * translator (the storefront passes the store language's).
+ */
+export function toMenuItem(
+  row: MenuItemRow,
+  homePage: string | null | undefined,
+  i18n: I18n = enI18n,
+): MenuItem {
+  const targetName =
+    (row.target_type === 'home' || row.target_type === 'catalog') && row.target_name !== null
+      ? singletonLabel(row.target_type, i18n)
+      : row.target_name;
   return {
     id: row.id,
     publicId: row.public_id,
@@ -182,8 +205,8 @@ export function toMenuItem(row: MenuItemRow, homePage: string | null | undefined
     targetId: row.target_id,
     position: row.position,
     label: row.label,
-    text: row.label ?? row.target_name ?? '',
-    targetName: row.target_name,
+    text: row.label ?? targetName ?? '',
+    targetName,
     href: resolveMenuHref(row.target_type, row.target_slug, homePage),
     available: row.available === 1,
     // Singletons are always "found": the query supplies their name literally.
@@ -192,10 +215,14 @@ export function toMenuItem(row: MenuItemRow, homePage: string | null | undefined
 }
 
 /** Split a flat result set into the two menus, preserving order. */
-export function groupMenus(rows: MenuItemRow[], homePage: string | null | undefined): Menus {
+export function groupMenus(
+  rows: MenuItemRow[],
+  homePage: string | null | undefined,
+  i18n: I18n = enI18n,
+): Menus {
   const menus: Menus = { header: [], footer: [] };
   for (const row of rows) {
-    const item = toMenuItem(row, homePage);
+    const item = toMenuItem(row, homePage, i18n);
     // Defensive: a location outside the CHECK constraint would otherwise throw.
     if (item.location === 'header' || item.location === 'footer') menus[item.location].push(item);
   }
@@ -210,9 +237,10 @@ export function visibleItems(items: MenuItem[]): MenuItem[] {
 export async function getMenus(
   db: D1Database,
   homePage: string | null | undefined,
+  i18n: I18n = enI18n,
 ): Promise<Menus> {
   const { results } = await db.prepare(MENU_ITEMS_SQL).all<MenuItemRow>();
-  return groupMenus(results ?? [], homePage);
+  return groupMenus(results ?? [], homePage, i18n);
 }
 
 export const isMenuLocation = (v: unknown): v is MenuLocation =>

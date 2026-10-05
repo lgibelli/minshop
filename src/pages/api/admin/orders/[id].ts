@@ -56,10 +56,12 @@ export const prerender = false;
 // POST /api/admin/orders/:id — fulfill, unfulfill, refund, or reissue the guest
 // link. :id is the order public ID (ord_ or a preserved legacy shape); numeric
 // row ids are not accepted.
-export const POST: APIRoute = async ({ request, params, redirect }) => {
+export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
+  const { i18n } = locals;
+  const { t } = i18n;
   const publicId = parseOrderOrLegacyPublicId(params.id, 'order');
   const existing = publicId ? await getOrderByPublicId(env.DB, publicId) : null;
-  if (!existing) return new Response('Not found', { status: 404 });
+  if (!existing) return new Response(t('adminOrders.errors.notFound'), { status: 404 });
   const id = existing.id;
 
   const form = await request.formData();
@@ -87,9 +89,11 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
 
   if (action === 'resolve_inventory_exception') {
     const exceptionId = parsePublicId(form.get('exception_id'), 'inventoryException');
-    if (!exceptionId) return fail('Invalid inventory exception.');
+    if (!exceptionId) return fail(t('adminOrders.api.invalidInventoryException'));
     const resolved = await resolveInventoryException(env.DB, id, exceptionId);
-    return resolved ? notice('Inventory exception marked reconciled.') : fail('That inventory exception is already resolved or does not belong to this order.');
+    return resolved
+      ? notice(t('adminOrders.api.inventoryReconciled'))
+      : fail(t('adminOrders.api.inventoryAlreadyResolved'));
   }
 
   // Rotate the guest access token and email the customer the replacement link.
@@ -98,32 +102,28 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   // revocable registry token; anything else is refused with a reason.
   if (action === 'reissue_link') {
     if (!existing.email) {
-      return fail(
-        'This order has no customer email, so a new link cannot be delivered. Nothing was changed.',
-      );
+      return fail(t('adminOrders.api.reissueNoEmail'));
     }
     if (!shouldSendCustomerOrderEmail(existing.payment_method)) {
-      return fail('Demo orders never email customers, so their link cannot be reissued.');
+      return fail(t('adminOrders.api.reissueDemo'));
     }
     if (!existing.public_id?.startsWith('ord_')) {
       // A legacy order's guest link IS its preserved public ID — there is no
       // registry token to rotate.
-      return fail('This order predates revocable guest links and cannot be reissued.');
+      return fail(t('adminOrders.api.reissueLegacy'));
     }
     // Rotation kills every old link the instant it lands, so refuse up front
     // when no email provider could deliver the replacement — otherwise the
     // customer would lose access with nothing on the way.
     if (!(await getEmailProvider(await getStoreSettings(env.DB)))) {
-      return fail(
-        'Email is not configured, so the replacement link could not be delivered. Nothing was changed.',
-      );
+      return fail(t('adminOrders.api.reissueEmailOff'));
     }
     // Atomic: rotates the token AND queues the versioned
     // guest-link-reissue:<generation> notification in one D1 batch; refuses
     // unsettled checkouts (and unknown registry rows).
     const reissued = await reissueGuestAccess(env.DB, existing.public_id);
     if (!reissued) {
-      return fail('Only settled orders with a guest link can be reissued.');
+      return fail(t('adminOrders.api.reissueUnsettled'));
     }
     try {
       await deliverOrderNotifications(env.DB, id, new URL(request.url).origin);
@@ -131,9 +131,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       // The row stays queued; the piggyback sweep will retry it.
       console.error('Guest-link reissue delivery failed:', err);
     }
-    return notice(
-      'The old order links no longer work. A new link is being emailed to the customer.',
-    );
+    return notice(t('adminOrders.api.reissued'));
   }
 
   // Refund through the provider. Moves money.
@@ -150,11 +148,9 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     // already gone back another way. The merchant should refund the remainder
     // in the provider's own dashboard, which syncs back automatically.
     if (order.external_refunded_cents > 0) {
-      return fail(
-        'This order already has a manually recorded refund. Issue the remaining amount in your payment provider’s dashboard — it will sync back here automatically.',
-      );
+      return fail(t('adminOrders.api.refundManualExists'));
     }
-    if (refundableCents(order) <= 0) return fail('This order is already fully refunded.');
+    if (refundableCents(order) <= 0) return fail(t('adminOrders.api.refundAlreadyFull'));
 
     try {
       // NULL predates payment_method and was always Stripe. Falling through to
@@ -164,13 +160,11 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
         (order.payment_method ?? 'stripe') as PaymentMethod,
       );
       if (!provider.refund) {
-        return fail(
-          'Refunds are not supported for this payment method — return the money yourself, then use "Record refund".',
-        );
+        return fail(t('adminOrders.api.refundUnsupported'));
       }
       await provider.refund(order.provider_session_id);
     } catch (err) {
-      return fail(`Refund failed: ${(err as Error).message}`);
+      return fail(t('adminOrders.api.refundFailed', { error: (err as Error).message }));
     }
     // Absolute, not additive: the provider now holds the full total. The
     // charge.refunded webhook that follows reports the same number and is
@@ -195,9 +189,11 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   // Record money already returned outside the provider. Moves no money.
   if (action === 'record_refund') {
     const order = await getOrder(env.DB, id);
-    if (!order) return fail('Order not found.');
+    if (!order) return fail(t('adminOrders.api.orderNotFound'));
     const amount = cents();
-    if (!Number.isFinite(amount) || amount <= 0) return fail('Enter a refund amount above zero.');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail(t('adminOrders.api.refundAmountRequired'));
+    }
 
     const result = await recordExternalRefund(env.DB, {
       orderId: id,
@@ -215,15 +211,17 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
 
     if (!result.ok) {
       if (result.reason === 'duplicate') {
-        return fail('That refund is already recorded — nothing was changed.');
+        return fail(t('adminOrders.api.refundDuplicate'));
       }
       if (result.reason === 'insufficient_balance') {
         return fail(
-          `That is more than the remaining refundable balance (${formatPrice(refundableCents(order))}).`,
+          t('adminOrders.api.refundOverBalance', {
+            amount: formatPrice(refundableCents(order), undefined, i18n.intl),
+          }),
         );
       }
-      if (result.reason === 'invalid_amount') return fail('Enter a refund amount above zero.');
-      return fail('This order cannot be refunded.');
+      if (result.reason === 'invalid_amount') return fail(t('adminOrders.api.refundAmountRequired'));
+      return fail(t('adminOrders.api.refundNotAllowed'));
     }
     // sendRefundNotice applies the demo rule itself, so demo orders stay silent.
     await sendRefundNotice(id, amount, new URL(request.url).origin);
@@ -234,11 +232,11 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   // when the webhook never arrived. Absolute: this is the provider's total.
   if (action === 'sync_refund') {
     const order = await getOrder(env.DB, id);
-    if (!order) return fail('Order not found.');
+    if (!order) return fail(t('adminOrders.api.orderNotFound'));
     const amount = cents();
-    if (!Number.isFinite(amount) || amount < 0) return fail('Enter the total refunded so far.');
+    if (!Number.isFinite(amount) || amount < 0) return fail(t('adminOrders.api.syncAmountRequired'));
     if (amount > order.amount_total_cents) {
-      return fail('That is more than the order total.');
+      return fail(t('adminOrders.api.syncOverTotal'));
     }
 
     const result = await syncProviderRefund(env.DB, {
@@ -251,9 +249,9 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       createdBy: admin,
     });
 
-    if (!result.ok) return fail('This order cannot be reconciled.');
+    if (!result.ok) return fail(t('adminOrders.api.syncNotAllowed'));
     if (!result.advanced) {
-      return fail('That total is already recorded — nothing was changed.');
+      return fail(t('adminOrders.api.syncDuplicate'));
     }
     // The provider total can be individually valid yet exceed the order once
     // added to what was recorded by hand. The generated aggregate clamps, so
@@ -262,9 +260,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     const conflict = await openReviewIfOverRefunded(env.DB, id);
     await sendRefundNotice(id, result.deltaCents, new URL(request.url).origin);
     if (conflict) {
-      return fail(
-        'Recorded, but the provider total plus refunds recorded here now exceeds the order total. Review the refunds on this order.',
-      );
+      return fail(t('adminOrders.api.syncConflict'));
     }
     return back;
   }
@@ -275,7 +271,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   if (action === 'void_refund') {
     const refundPublicId = parseOrderOrLegacyPublicId(form.get('refund_id'), 'refund');
     const target = refundPublicId ? await getRefundByPublicId(env.DB, refundPublicId) : null;
-    if (!target || target.order_id !== id) return fail('Invalid refund.');
+    if (!target || target.order_id !== id) return fail(t('adminOrders.api.invalidRefund'));
     const result = await voidRecordedRefund(env.DB, {
       refundId: target.id,
       idempotencyKey: `void:${target.id}`,
@@ -285,8 +281,8 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     if (!result.ok) {
       return fail(
         result.reason === 'duplicate'
-          ? 'That entry has already been voided.'
-          : 'Only manually recorded refunds can be voided.',
+          ? t('adminOrders.api.voidDuplicate')
+          : t('adminOrders.api.voidNotAllowed'),
       );
     }
     return back;
@@ -326,8 +322,8 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     // Quotes and definitively-failed attempts only. A SUBMITTED purchase may
     // still be completing at Shippo — only reconciliation can settle those.
     return (await discardLabelAttempt(env.DB, id))
-      ? notice('Label attempt discarded. You can fetch rates again.')
-      : fail('There is no discardable label attempt — a submitted purchase must be reconciled with Shippo instead.');
+      ? notice(t('adminOrders.api.labelDiscarded'))
+      : fail(t('adminOrders.api.labelNothingToDiscard'));
   }
 
   if (action === 'label_force_discard') {
@@ -337,10 +333,8 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     // only at Shippo. Reconciliation is always the safe path; this exists for
     // attempts whose POST plausibly never left the building.
     return (await forceDiscardLabelAttempt(env.DB, id))
-      ? notice(
-          'Attempt force-discarded. If the original request did reach Shippo, its label will appear only in your Shippo dashboard.',
-        )
-      : fail('There is no submitted attempt to force-discard.');
+      ? notice(t('adminOrders.api.labelForceDiscarded'))
+      : fail(t('adminOrders.api.labelNothingToForceDiscard'));
   }
 
   // Ask Shippo what actually happened to a submitted-but-unsettled attempt.
@@ -349,7 +343,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   // a live purchase) an ambiguous attempt.
   if (action === 'label_reconcile') {
     const token = await getSecret(env.DB, 'shippo_api_key');
-    if (!token) return fail('Add a Shippo API token in Settings first.');
+    if (!token) return fail(t('adminOrders.api.shippoTokenMissing'));
     const record = await getLabelRecord(env.DB, id);
     const settleable =
       record &&
@@ -357,24 +351,23 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       record.rate_id &&
       (record.status === 'uncertain' || (record.status === 'purchasing' && isPurchaseStale(record)));
     if (!record || !settleable) {
-      return fail('There is no unsettled label attempt to reconcile.');
+      return fail(t('adminOrders.api.labelNothingToReconcile'));
     }
 
     // Provider/service/amount come from the shipment's own rate list — the
     // transaction record does not carry them.
-    const rates = await getShipmentRates(token, record.shipment_id);
+    const rates = await getShipmentRates(token, record.shipment_id, i18n);
     const rate = rates.ok ? rates.value.find((r) => r.rateId === record.rate_id) : null;
     const outcome = await findTransactionForRate(
       token,
       record.rate_id!,
       rate?.provider ?? record.provider ?? 'Carrier',
+      i18n,
     );
-    if (!outcome.ok) return fail(`Could not reconcile with Shippo: ${outcome.error}`);
+    if (!outcome.ok) return fail(t('adminOrders.api.reconcileFailed', { error: outcome.error }));
 
     if (outcome.value.state === 'pending') {
-      return fail(
-        'Shippo has no settled answer yet — the purchase may still be processing or not yet visible. Try again shortly; nothing was changed.',
-      );
+      return fail(t('adminOrders.api.reconcilePending'));
     }
     if (outcome.value.state === 'refunded') {
       // Bought, then refunded at the provider: record the original transaction
@@ -389,9 +382,9 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
         labelUrl: refFound.labelUrl,
         carrierCode: carrierCodeFor(refFound.provider),
       });
-      if (!audited) return fail('The attempt changed state while reconciling — reload and check again.');
+      if (!audited) return fail(t('adminOrders.api.reconcileRaced'));
       return notice(
-        `Shippo shows the label was purchased and then refunded (transaction ${refFound.transactionId}). Recorded — you can fetch rates again.`,
+        t('adminOrders.api.reconcileRefunded', { transaction: refFound.transactionId }),
       );
     }
     if (outcome.value.state === 'none') {
@@ -399,12 +392,12 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
         env.DB,
         id,
         record.claim_token!,
-        'Reconciled with Shippo: the attempt terminated in ERROR without purchasing.',
+        t('adminOrders.api.reconcileNoneStored'),
       );
       if (!failed) {
-        return fail('The attempt changed state while reconciling — reload and check again.');
+        return fail(t('adminOrders.api.reconcileRaced'));
       }
-      return notice('Shippo explicitly reports the attempt failed without purchasing. You can fetch rates again.');
+      return notice(t('adminOrders.api.reconcileNone'));
     }
     const found = outcome.value.label;
     const recorded = await recordPurchased(env.DB, id, record.claim_token!, {
@@ -417,35 +410,29 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       carrierCode: carrierCodeFor(found.provider),
     });
     if (!recorded.recorded) {
-      return fail('The attempt changed state while reconciling — reload and check again.');
+      return fail(t('adminOrders.api.reconcileRaced'));
     }
     if (!recorded.orderFulfilled) {
-      return notice(
-        `Label ${found.trackingNumber} recovered from Shippo and recorded — but the order refused fulfillment (refunded or already fulfilled). Reconcile the shipment by hand.`,
-      );
+      return notice(t('adminOrders.api.reconcileUnfulfilled', { tracking: found.trackingNumber }));
     }
     await queueShippedDelivery(id);
-    return notice(
-      `Label ${found.trackingNumber} recovered from Shippo, recorded, and the order fulfilled.`,
-    );
+    return notice(t('adminOrders.api.reconcileFulfilled', { tracking: found.trackingNumber }));
   }
 
   if (action === 'label_rates' || action === 'buy_label') {
     const token = await getSecret(env.DB, 'shippo_api_key');
-    if (!token) return fail('Add a Shippo API token in Settings first.');
-    if (!existing.ship_address) return fail('This order has no shipping address.');
+    if (!token) return fail(t('adminOrders.api.shippoTokenMissing'));
+    if (!existing.ship_address) return fail(t('adminOrders.api.noShippingAddress'));
     let raw: ShippingAddress;
     try {
       raw = JSON.parse(existing.ship_address) as ShippingAddress;
     } catch {
-      return fail('This order’s shipping address could not be read.');
+      return fail(t('adminOrders.api.addressUnreadable'));
     }
     // The snapshot's fields are nullable (provider shapes vary); a label needs
     // the essentials, so refuse with the gap named rather than 500 at Shippo.
     if (!raw.name || !raw.line1 || !raw.city || !raw.postal || !raw.country) {
-      return fail(
-        'This order’s shipping address is incomplete — a label needs name, street, city, postal code, and country.',
-      );
+      return fail(t('adminOrders.api.addressIncomplete'));
     }
     const shipTo = {
       name: raw.name,
@@ -468,14 +455,14 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
         country: String(form.get('from_country') ?? '').trim().toUpperCase(),
       };
       if (!from.name || !from.street1 || !from.city || !from.zip || from.country.length !== 2) {
-        return fail('Fill in the complete ship-from address (2-letter country).');
+        return fail(t('adminOrders.api.shipFromIncomplete'));
       }
       // Domestic only, for now: an international label needs a customs
       // declaration (contents, values, phone numbers) this flow does not
       // collect, so Shippo would refuse or the parcel would stall at export.
       if (from.country !== shipTo.country.toUpperCase()) {
         return fail(
-          `International labels aren’t supported yet (this order ships to ${shipTo.country.toUpperCase()}). Buy this label in your Shippo dashboard, then record the tracking number here.`,
+          t('adminOrders.api.internationalUnsupported', { country: shipTo.country.toUpperCase() }),
         );
       }
       const settings = await getStoreSettings(env.DB);
@@ -487,8 +474,9 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
           weight: String(form.get('parcel_weight') ?? ''),
         },
         settings.weightUnit,
+        i18n,
       );
-      if (!parsed.parcel) return fail(parsed.error ?? 'Check the parcel fields.');
+      if (!parsed.parcel) return fail(parsed.error ?? t('adminOrders.api.parcelInvalid'));
 
       // Remember for next time regardless of whether a label gets bought.
       await setSetting(env.DB, 'ship_from', JSON.stringify(from));
@@ -509,13 +497,14 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
         parsed.parcel,
         settings.weightUnit,
         existing.public_id,
+        i18n,
       );
       if (!rates.ok) return fail(rates.error);
       // The quote binds to THIS order in D1. Refusal means a purchase is in
       // progress, done, or the order is no longer labelable (unpaid, fulfilled,
       // pickup) — nothing was charged either way.
       if (!(await recordQuote(env.DB, id, rates.value.shipmentId))) {
-        return fail('This order can’t fetch rates right now — a label purchase already exists or the order is no longer eligible.');
+        return fail(t('adminOrders.api.quoteRefused'));
       }
       return back;
     }
@@ -523,32 +512,30 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     // buy_label — the claim flips this order's quote to 'purchasing'; exactly
     // one concurrent submit wins, and the shipment bought from is the row's.
     const rateId = String(form.get('rate') ?? '').trim();
-    if (!rateId) return fail('Pick a rate first.');
+    if (!rateId) return fail(t('adminOrders.api.pickRate'));
     const claim = await claimPurchase(env.DB, id, rateId);
     if (!claim) {
-      return fail('No open quote to purchase — fetch rates first (or a purchase is already under way).');
+      return fail(t('adminOrders.api.noOpenQuote'));
     }
-    const rates = await getShipmentRates(token, claim.shipmentId);
+    const rates = await getShipmentRates(token, claim.shipmentId, i18n);
     if (!rates.ok) {
       await markLabelFailed(env.DB, id, claim.claimToken, rates.error);
       return fail(rates.error);
     }
     const rate = rates.value.find((r) => r.rateId === rateId);
     if (!rate) {
-      await markLabelFailed(env.DB, id, claim.claimToken, 'Selected rate no longer offered.');
-      return fail('That rate is no longer offered. Fetch rates again.');
+      await markLabelFailed(env.DB, id, claim.claimToken, t('adminOrders.api.rateGoneStored'));
+      return fail(t('adminOrders.api.rateGone'));
     }
 
-    const bought = await purchaseLabel(token, rate.rateId, rate.provider, existing.public_id);
+    const bought = await purchaseLabel(token, rate.rateId, rate.provider, existing.public_id, i18n);
     if (!bought.ok) {
       if (bought.uncertain) {
         // The charge MAY have landed. Park it — never auto-retry a purchase —
         // and point the merchant at the dashboard record (tagged with the
         // order id via metadata) before they explicitly discard.
         await markLabelUncertain(env.DB, id, claim.claimToken, bought.error);
-        return fail(
-          `Shippo’s answer was lost mid-purchase (${bought.error}) — the label MAY have been bought. Use “Reconcile with Shippo” on this order to settle it either way.`,
-        );
+        return fail(t('adminOrders.api.purchaseUncertain', { error: bought.error }));
       }
       await markLabelFailed(env.DB, id, claim.claimToken, bought.error);
       return fail(bought.error);
@@ -571,7 +558,10 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       // while Shippo processed it — the label exists ONLY at Shippo. Nothing
       // here was touched, by design; the charge still needs human eyes.
       return fail(
-        `A label (${bought.value.trackingNumber}) was purchased by an attempt that had already been discarded — it is not recorded here. Reconcile it in your Shippo dashboard (order ${existing.public_id}).`,
+        t('adminOrders.api.purchaseSuperseded', {
+          tracking: bought.value.trackingNumber,
+          order: String(existing.public_id),
+        }),
       );
     }
     if (!recorded.orderFulfilled) {
@@ -580,16 +570,16 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
       // flight. No shipped email was queued. Say so — pretending this
       // succeeded is how paid labels get lost.
       return fail(
-        `Label ${bought.value.trackingNumber} was purchased and saved, but the order could not be marked fulfilled with it — it changed state meanwhile (refunded?). No customer email was sent. Reconcile by hand.`,
+        t('adminOrders.api.purchaseUnfulfilled', { tracking: bought.value.trackingNumber }),
       );
     }
     const willEmail = await queueShippedDelivery(id);
     return notice(
-      `Label purchased (${rate.provider} ${rate.service}). Tracking ${bought.value.trackingNumber} recorded. ${
-        willEmail
-          ? 'The tracking email to the customer has been queued.'
-          : 'No customer email will be sent (demo order, no address, or email not configured).'
-      }`,
+      t(willEmail ? 'adminOrders.api.purchasedEmailQueued' : 'adminOrders.api.purchasedNoEmail', {
+        provider: rate.provider,
+        service: rate.service,
+        tracking: bought.value.trackingNumber,
+      }),
     );
   }
 
@@ -597,9 +587,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   const carrier = String(form.get('carrier') ?? '').trim() || null;
   const trackingNumber = String(form.get('tracking_number') ?? '').trim() || null;
   if (!(await fulfillOrder(env.DB, id, carrier, trackingNumber))) {
-    return fail(
-      'This order has a label purchase in progress or awaiting reconciliation — finish or discard that first.',
-    );
+    return fail(t('adminOrders.api.fulfillBlocked'));
   }
 
   // Durable shipped notice: queue + attempt now; a failed send is retried by

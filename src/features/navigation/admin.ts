@@ -1,5 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { MenuItem, MenuLocation, MenuTargetType } from './db.ts';
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core.ts';
 
 /**
  * How many options a picker offers before the merchant has to search.
@@ -86,21 +87,21 @@ export async function targetChoices(
  * id/name/slug/parent_id/created_at — so deletion is the only way one becomes
  * unavailable, which also makes it the easiest to miss.
  */
-export function unavailableReason(item: MenuItem): string | null {
+export function unavailableReason(item: MenuItem, i18n: I18n = enI18n): string | null {
   if (item.available) return null;
   // targetExists, not an empty label: a custom label outlives its target, so a
   // deleted page labelled "Company" still renders text and would otherwise be
   // reported as a draft — sending the merchant to un-draft a page that is gone.
-  if (!item.targetExists) return 'Target no longer exists';
+  if (!item.targetExists) return i18n.t('adminContent.navigation.targetMissing');
   switch (item.targetType) {
     case 'page':
-      return 'Draft — hidden on the storefront';
+      return i18n.t('adminContent.navigation.pageDraft');
     case 'product':
-      return 'Inactive — hidden on the storefront';
+      return i18n.t('adminContent.navigation.productInactive');
     case 'category':
-      return 'Target no longer exists';
+      return i18n.t('adminContent.navigation.targetMissing');
     default:
-      return 'Unavailable';
+      return i18n.t('adminContent.navigation.unavailable');
   }
 }
 
@@ -144,10 +145,15 @@ export async function menuReferencesFor(
   return found;
 }
 
-export const TARGET_TYPE_LABELS: Record<MenuTargetType, string> = {
-  home: 'Home',
-  catalog: 'Catalog',
-  page: 'Page',
-  product: 'Product',
-  category: 'Category',
+/** Message keys for each target type, in the order the type picker lists them. */
+export const TARGET_TYPE_LABELS: Record<MenuTargetType, MessageKey> = {
+  home: 'adminContent.navigation.typeHome',
+  catalog: 'adminContent.navigation.typeCatalog',
+  page: 'adminContent.navigation.typePage',
+  product: 'adminContent.navigation.typeProduct',
+  category: 'adminContent.navigation.typeCategory',
 };
+
+export function targetTypeLabel(type: MenuTargetType, i18n: I18n = enI18n): string {
+  return i18n.t(TARGET_TYPE_LABELS[type]);
+}

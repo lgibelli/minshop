@@ -1,4 +1,5 @@
 import { normalizePageLayout, type PageLayout } from './layouts.ts';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 const MAX_TITLE = 120;
 const MAX_BODY = 100_000;
@@ -17,16 +18,19 @@ export interface PageFields {
  * Parse and validate the page form. Returns either the fields or a single
  * user-facing message, matching parseProductForm's shape.
  */
-export function parsePageForm(form: FormData): { data: PageFields } | { error: string } {
+export function parsePageForm(
+  form: FormData,
+  i18n: I18n = enI18n,
+): { data: PageFields } | { error: string } {
   const title = String(form.get('title') ?? '').trim();
-  if (!title) return { error: 'Title is required.' };
+  if (!title) return { error: i18n.t('adminContent.form.titleRequired') };
   if (title.length > MAX_TITLE) {
-    return { error: `Title must be ${MAX_TITLE} characters or fewer.` };
+    return { error: i18n.t('adminContent.form.titleTooLong', { max: i18n.number(MAX_TITLE) }) };
   }
 
   const body = String(form.get('body_markdown') ?? '');
   if (body.length > MAX_BODY) {
-    return { error: `Page content must be ${MAX_BODY.toLocaleString()} characters or fewer.` };
+    return { error: i18n.t('adminContent.form.bodyTooLong', { max: i18n.number(MAX_BODY) }) };
   }
 
   return {

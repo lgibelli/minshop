@@ -6,16 +6,26 @@ import {
   MENU_CAPS,
   MAX_MENU_LABEL,
   isMenuTargetType,
-  SINGLETON_LABELS,
+  singletonLabel,
   type MenuLocation,
   type MenuTargetType,
 } from '../../features/navigation/db';
 import {
   targetChoices,
   unavailableReason,
+  targetTypeLabel,
   TARGET_TYPE_LABELS,
   PICKER_LIMIT,
 } from '../../features/navigation/admin';
+import { storeI18n, type MessageKey } from '../../i18n';
+
+const i18n = Astro.locals.i18n;
+const { t, th } = i18n;
+// Home and Catalog fall back to their storefront names, which are in the store's
+// language — the admin must promise what the storefront will actually render.
+const store = storeI18n();
+// Messages land inside single-quoted JS strings in inline confirm() handlers.
+const jsQuote = (s: string) => s.replace(/[\\']/g, '\\$&');
 
 const url = Astro.url;
 const error = url.searchParams.get('error');
@@ -30,7 +40,7 @@ const pickerLocation: MenuLocation = url.searchParams.get('location') === 'foote
 const pickerQuery = url.searchParams.get('q') ?? '';
 
 const homePage = Astro.locals.settings?.homePage ?? null;
-const menus = await getMenus(env.DB, homePage);
+const menus = await getMenus(env.DB, homePage, store);
 
 // Every object type's options are fetched and rendered up front so switching the
 // type <select> is instant — CSS reveals the matching picker instead of a page
@@ -40,12 +50,12 @@ const OBJECT_TYPES = ['page', 'product', 'category'] as const satisfies readonly
 // mean searching "beanie" under Products and then switching to Pages shows a
 // page list mysteriously filtered by a product search.
 const choiceList = await Promise.all(
-  OBJECT_TYPES.map((t) => targetChoices(env.DB, t, t === pickerType ? pickerQuery : '')),
+  OBJECT_TYPES.map((type) => targetChoices(env.DB, type, type === pickerType ? pickerQuery : '')),
 );
 const choices = Object.fromEntries(
-  OBJECT_TYPES.map((t, i) => [t, choiceList[i]]),
+  OBJECT_TYPES.map((type, i) => [type, choiceList[i]]),
 ) as Record<(typeof OBJECT_TYPES)[number], (typeof choiceList)[number]>;
-const truncated = OBJECT_TYPES.filter((t) => choices[t].remaining > 0);
+const truncated = OBJECT_TYPES.filter((type) => choices[type].remaining > 0);
 
 const isSingletonType = pickerType === 'home' || pickerType === 'catalog';
 
@@ -63,7 +73,7 @@ const nothingToAdd = !isSingletonType && choices[pickerType].options.length === 
 // What a blank label will fall back to, for the placeholder. Server-rendered for
 // the initial selection; the script keeps it in step as the merchant picks.
 const initialDefaultLabel = isSingletonType
-  ? SINGLETON_LABELS[pickerType]
+  ? singletonLabel(pickerType, store)
   : (choices[pickerType].options[0]?.name ?? '');
 
 // Home and Catalog both resolve to '/' until the home page is pointed elsewhere,
@@ -75,22 +85,42 @@ const bothRootLinks = (loc: MenuLocation) =>
   menus[loc].some((i) => i.targetType === 'home') &&
   menus[loc].some((i) => i.targetType === 'catalog');
 
-const locations: { key: MenuLocation; title: string; note: string }[] = [
+const locations: {
+  key: MenuLocation;
+  title: string;
+  note: string;
+  removeConfirm: MessageKey;
+  removeUnnamedConfirm: MessageKey;
+}[] = [
   {
     key: 'header',
-    title: 'Header',
-    note: `Up to ${MENU_CAPS.header} items — the header also holds your logo, search, and cart.`,
+    title: t('adminContent.navigation.header'),
+    note: t('adminContent.navigation.headerNote', { max: MENU_CAPS.header }),
+    removeConfirm: 'adminContent.navigation.removeFromHeader',
+    removeUnnamedConfirm: 'adminContent.navigation.removeUnnamedFromHeader',
   },
-  { key: 'footer', title: 'Footer', note: `Up to ${MENU_CAPS.footer} items.` },
+  {
+    key: 'footer',
+    title: t('adminContent.navigation.footer'),
+    note: t('adminContent.navigation.footerNote', { max: MENU_CAPS.footer }),
+    removeConfirm: 'adminContent.navigation.removeFromFooter',
+    removeUnnamedConfirm: 'adminContent.navigation.removeUnnamedFromFooter',
+  },
 ];
+
+// "pages: showing 50 of 120" for each capped picker type.
+const TRUNCATED: Record<(typeof OBJECT_TYPES)[number], MessageKey> = {
+  page: 'adminContent.navigation.truncatedPage',
+  product: 'adminContent.navigation.truncatedProduct',
+  category: 'adminContent.navigation.truncatedCategory',
+};
 ---
 
-<AdminLayout title="Navigation" active="navigation">
+<AdminLayout title={t('adminContent.navigation.title')} active="navigation">
   <div class="mb-8">
-    <h1 class="font-serif text-3xl tracking-tight">Navigation</h1>
+    <h1 class="font-serif text-3xl tracking-tight">{t('adminContent.navigation.title')}</h1>
     <p class="mt-2 text-sm text-gray-500">
-      Choose what appears in your header and footer. Changes appear on the storefront within a
-      minute.
+      {t('adminContent.navigation.intro')}
     </p>
   </div>
 
@@ -104,13 +134,13 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
   {
     saved && !error && (
       <p class="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-        Navigation updated.
+        {t('adminContent.navigation.updated')}
       </p>
     )
   }
 
   <section class="mb-10 rounded-lg border border-line bg-white/60 p-5">
-    <h2 class="mb-4 font-serif text-xl tracking-tight">Add an item</h2>
+    <h2 class="mb-4 font-serif text-xl tracking-tight">{t('adminContent.navigation.addTitle')}</h2>
 
     {/* ONE form. Every type's picker is rendered up front and revealed by CSS as
         the type <select> changes, so choosing a type costs no round trip.
@@ -121,6 +151,13 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
       method="POST"
       action="/api/admin/navigation"
       data-add-item
+      data-msg-defaults-to={t('adminContent.navigation.defaultsTo')}
+      data-msg-defaults-to-name={t('adminContent.navigation.defaultsToName')}
+      data-msg-nothing-matches={t('adminContent.navigation.nothingMatches')}
+      data-msg-no-matches={t('adminContent.navigation.noMatches')}
+      data-msg-no-matches-truncated={t('adminContent.navigation.noMatchesTruncated')}
+      data-label-home={singletonLabel('home', store)}
+      data-label-catalog={singletonLabel('catalog', store)}
       class="flex flex-col gap-4"
     >
       {/* Two rows on purpose. The picker and search change width with the
@@ -131,15 +168,15 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
           the search, which would otherwise nudge the second row up by 2px. */}
       <div class="flex min-h-[3.65rem] flex-wrap items-end gap-3">
       <label class="text-xs uppercase tracking-wider text-gray-500">
-        Type
+        {t('adminContent.navigation.type')}
         <select
           name="target_type"
           class="mt-1 block rounded-md border border-line bg-white px-3 py-2 text-sm normal-case tracking-normal text-gray-900"
         >
           {
-            (Object.keys(TARGET_TYPE_LABELS) as MenuTargetType[]).map((t) => (
-              <option value={t} selected={t === pickerType}>
-                {TARGET_TYPE_LABELS[t]}
+            (Object.keys(TARGET_TYPE_LABELS) as MenuTargetType[]).map((type) => (
+              <option value={type} selected={type === pickerType}>
+                {targetTypeLabel(type, i18n)}
               </option>
             ))
           }
@@ -147,14 +184,14 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
       </label>
 
       <div data-target-search class="flex-col text-xs uppercase tracking-wider text-gray-500">
-        <label for="nav-target-search">Search</label>
+        <label for="nav-target-search">{t('adminContent.navigation.search')}</label>
         <div class="mt-1 flex gap-2">
           <input
             id="nav-target-search"
             type="search"
             name="q"
             value={pickerQuery}
-            placeholder="Filter by name"
+            placeholder={t('adminContent.navigation.filterPlaceholder')}
             class="block w-40 rounded-md border border-line px-3 py-2 text-sm normal-case tracking-normal"
           />
           <button
@@ -164,7 +201,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
             hidden={!searchAllNeeded}
             class="rounded-md border border-line px-3 py-2 text-xs uppercase tracking-wider hover:border-brand hover:text-brand"
           >
-            Search all
+            {t('adminContent.navigation.searchAll')}
           </button>
         </div>
       </div>
@@ -174,23 +211,25 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
           target_id_<target_type>. No `required`: a hidden required control makes
           the form unsubmittable. */}
       {
-        OBJECT_TYPES.map((t) => (
+        OBJECT_TYPES.map((type) => (
           <label
-            data-target-picker={t}
-            data-truncated={choices[t].remaining > 0 ? '1' : '0'}
+            data-target-picker={type}
+            data-truncated={choices[type].remaining > 0 ? '1' : '0'}
             class="flex-col text-xs uppercase tracking-wider text-gray-500"
           >
-            {TARGET_TYPE_LABELS[t]}
+            {targetTypeLabel(type, i18n)}
             <select
-              name={`target_id_${t}`}
+              name={`target_id_${type}`}
               class="mt-1 block w-56 rounded-md border border-line bg-white px-3 py-2 text-sm normal-case tracking-normal text-gray-900"
             >
-              {choices[t].options.length === 0 && (
+              {choices[type].options.length === 0 && (
                 <option value="">
-                  {pickerQuery ? 'No matches' : 'None available'}
+                  {pickerQuery
+                    ? t('adminContent.navigation.noMatches')
+                    : t('adminContent.navigation.noneAvailable')}
                 </option>
               )}
-              {choices[t].options.map((o) => (
+              {choices[type].options.map((o) => (
                 <option value={o.public_id}>{o.name}</option>
               ))}
             </select>
@@ -201,27 +240,29 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
 
       <div class="flex flex-wrap items-end gap-3">
         <label class="text-xs uppercase tracking-wider text-gray-500">
-        Label (optional)
+        {t('adminContent.navigation.labelOptional')}
         <input
           type="text"
           name="label"
           maxlength={MAX_MENU_LABEL}
           data-label-input
           placeholder={
-            initialDefaultLabel ? `Defaults to “${initialDefaultLabel}”` : 'Defaults to its name'
+            initialDefaultLabel
+              ? t('adminContent.navigation.defaultsTo', { name: initialDefaultLabel })
+              : t('adminContent.navigation.defaultsToName')
           }
           class="mt-1 block rounded-md border border-line px-3 py-2 text-sm normal-case tracking-normal"
         />
       </label>
 
       <label class="text-xs uppercase tracking-wider text-gray-500">
-        Add to
+        {t('adminContent.navigation.addTo')}
         <select
           name="location"
           class="mt-1 block rounded-md border border-line bg-white px-3 py-2 text-sm normal-case tracking-normal text-gray-900"
         >
-          <option value="header" selected={pickerLocation === 'header'}>Header</option>
-          <option value="footer" selected={pickerLocation === 'footer'}>Footer</option>
+          <option value="header" selected={pickerLocation === 'header'}>{t('adminContent.navigation.header')}</option>
+          <option value="footer" selected={pickerLocation === 'footer'}>{t('adminContent.navigation.footer')}</option>
         </select>
       </label>
 
@@ -231,10 +272,10 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
         value="add"
         data-add-button
         disabled={nothingToAdd}
-        title={nothingToAdd ? 'Nothing matches — clear or widen your search' : undefined}
+        title={nothingToAdd ? t('adminContent.navigation.nothingMatches') : undefined}
         class="rounded-md bg-brand px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-brand"
       >
-        Add
+        {t('adminContent.navigation.add')}
         </button>
       </div>
     </form>
@@ -243,9 +284,14 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
       truncated.length > 0 && (
         <p class="mt-3 text-xs text-gray-500">
           {truncated
-            .map((t) => `${TARGET_TYPE_LABELS[t].toLowerCase()}s: showing ${PICKER_LIMIT} of ${choices[t].options.length + choices[t].remaining}`)
+            .map((type) =>
+              t(TRUNCATED[type], {
+                shown: PICKER_LIMIT,
+                total: choices[type].options.length + choices[type].remaining,
+              }),
+            )
             .join(' · ')}
-          . Type to filter; press Search all to look beyond that.
+          . {t('adminContent.navigation.truncatedHint')}
         </p>
       )
     }
@@ -265,19 +311,18 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
 
           {bothRootLinks(loc.key) && (
             <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Home and Catalog both point at <code>/</code> right now. They will differ once you
-              set a custom home page in Settings.
+              <Fragment set:html={th('adminContent.navigation.bothRootLinks')} />
             </p>
           )}
 
           {menus[loc.key].length === 0 ? (
             <p class="rounded-md border border-dashed border-line py-8 text-center text-sm text-gray-500">
-              No items yet.
+              {t('adminContent.navigation.noItems')}
             </p>
           ) : (
             <ul data-menu-list={loc.key} class="divide-y divide-line border-y border-line">
               {menus[loc.key].map((item, index) => {
-                const reason = unavailableReason(item);
+                const reason = unavailableReason(item, i18n);
                 return (
                   <li data-menu-item={item.publicId} class="flex min-w-0 items-start gap-3 py-3">
                     {/* Grip + grab cursor signal the row is draggable, matching the
@@ -300,10 +345,10 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                     <div class="min-w-0 flex-1">
                       <div class="flex min-w-0 flex-wrap items-center gap-2">
                         <span class="truncate text-sm font-medium">
-                          {item.text || 'Untitled'}
+                          {item.text || t('adminContent.navigation.untitled')}
                         </span>
                         <span class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gray-500">
-                          {TARGET_TYPE_LABELS[item.targetType]}
+                          {targetTypeLabel(item.targetType, i18n)}
                         </span>
                       </div>
                       {reason ? (
@@ -319,7 +364,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                           own summary and needs no JavaScript. */}
                       <details class="admin-rename mt-1">
                         <summary class="inline-flex cursor-pointer list-none text-xs text-gray-500 hover:text-brand">
-                          Edit link text
+                          {t('adminContent.navigation.editLinkText')}
                         </summary>
                         <form
                           method="POST"
@@ -332,7 +377,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                             for={`label-${item.publicId}`}
                             class="block text-[10px] uppercase tracking-wider text-gray-500"
                           >
-                            Link text
+                            {t('adminContent.navigation.linkText')}
                           </label>
                           <div class="mt-1 flex gap-2">
                             <input
@@ -341,19 +386,20 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                               name="label"
                               value={item.label ?? ''}
                               maxlength={MAX_MENU_LABEL}
-                              placeholder={item.targetName ?? 'Link text'}
+                              placeholder={item.targetName ?? t('adminContent.navigation.linkText')}
                               class="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1 text-xs focus:border-brand focus:outline-none"
                             />
                             <button
                               type="submit"
                               class="rounded border border-line px-2 py-1 text-xs hover:border-brand hover:text-brand"
                             >
-                              Save
+                              {t('adminContent.navigation.save')}
                             </button>
                           </div>
                           <p class="mt-1 text-[10px] text-gray-500">
-                            Changes only what this menu shows
-                            {item.targetName ? ` — leave blank to use “${item.targetName}”` : ''}.
+                            {item.targetName
+                              ? t('adminContent.navigation.labelHintWithName', { name: item.targetName })
+                              : t('adminContent.navigation.labelHint')}
                           </p>
                         </form>
                       </details>
@@ -368,7 +414,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                         <input type="hidden" name="direction" value="up" />
                         <button
                           type="submit"
-                          aria-label="Move up"
+                          aria-label={t('adminContent.navigation.moveUp')}
                           disabled={index === 0}
                           class="px-1 text-gray-400 hover:text-brand disabled:invisible"
                         >
@@ -381,7 +427,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                         <input type="hidden" name="direction" value="down" />
                         <button
                           type="submit"
-                          aria-label="Move down"
+                          aria-label={t('adminContent.navigation.moveDown')}
                           disabled={index === menus[loc.key].length - 1}
                           class="px-1 text-gray-400 hover:text-brand disabled:invisible"
                         >
@@ -394,13 +440,21 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
                       <form
                         method="POST"
                         action="/api/admin/navigation"
-                        onsubmit={`return confirm('Remove ${(item.text || 'this item').replace(/'/g, "\\'")} from the ${loc.title.toLowerCase()} menu?')`}
+                        onsubmit={`return confirm('${jsQuote(
+                          item.text
+                            ? t(loc.removeConfirm, { name: item.text })
+                            : t(loc.removeUnnamedConfirm),
+                        )}')`}
                       >
                         <input type="hidden" name="_action" value="remove" />
                         <input type="hidden" name="id" value={item.publicId} />
                         <button
                           type="submit"
-                          aria-label={`Remove ${item.text || 'item'}`}
+                          aria-label={
+                            item.text
+                              ? t('adminContent.navigation.remove', { name: item.text })
+                              : t('adminContent.navigation.removeUnnamed')
+                          }
                           class="px-1 text-gray-400 hover:text-red-600"
                         >
                           ×
@@ -464,9 +518,14 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
       });
     }
 
-    // Mirrors SINGLETON_LABELS — Home and Catalog have no <option> to read a
-    // name from, so their fallback is stated here too.
-    const singletonLabels: Record<string, string> = { home: 'Home', catalog: 'Shop' };
+    // Translated strings, rendered server-side into data-* on the form. Home
+    // and Catalog have no <option> to read a name from, so the server states
+    // their fallback names there too.
+    const msg = form.dataset;
+    const singletonLabels: Record<string, string> = {
+      home: msg.labelHome ?? '',
+      catalog: msg.labelCatalog ?? '',
+    };
 
     const syncPlaceholder = () => {
       if (!labelInput) return;
@@ -476,14 +535,16 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
             ? ''
             : (picker.select.selectedOptions[0]?.textContent ?? ''))
         : (singletonLabels[typeSel.value] ?? '');
-      labelInput.placeholder = name ? `Defaults to \u201C${name}\u201D` : 'Defaults to its name';
+      labelInput.placeholder = name
+        ? (msg.msgDefaultsTo ?? '').replace('{name}', () => name)
+        : (msg.msgDefaultsToName ?? '');
     };
 
     const setAddEnabled = (enabled: boolean) => {
       if (!addButton) return;
       addButton.disabled = !enabled;
       if (enabled) addButton.removeAttribute('title');
-      else addButton.title = 'Nothing matches — clear or widen your search';
+      else addButton.title = msg.msgNothingMatches ?? '';
     };
 
     const apply = () => {
@@ -497,7 +558,7 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
       }
       const q = search.value.trim().toLowerCase();
       const matches = q ? picker.all.filter((o) => o.text.toLowerCase().includes(q)) : picker.all;
-      const empty = picker.truncated ? 'No matches here — try Search all' : 'No matches';
+      const empty = (picker.truncated ? msg.msgNoMatchesTruncated : msg.msgNoMatches) ?? '';
       picker.select.replaceChildren(
         ...(matches.length === 0
           ? [new Option(empty, '')]
@@ -534,11 +595,17 @@ const locations: { key: MenuLocation; title: string; note: string }[] = [
   // Every failure path falls back to submitting the form normally, so a network
   // error or a stale row leaves the merchant with the working no-JS behaviour
   // rather than a button that silently does nothing.
+
+  // The move forms are identified by their direction input: the buttons' labels
+  // are translated, so they can't be selectors.
+  const moveButton = (row: Element, direction: 'up' | 'down') =>
+    (row.querySelector(`input[name="direction"][value="${direction}"]`)?.parentElement
+      ?.querySelector('button') ?? null) as HTMLButtonElement | null;
   const refreshEnds = (list: HTMLElement) => {
     const rows = [...list.children];
     rows.forEach((row, i) => {
-      const up = row.querySelector('button[aria-label="Move up"]') as HTMLButtonElement | null;
-      const down = row.querySelector('button[aria-label="Move down"]') as HTMLButtonElement | null;
+      const up = moveButton(row, 'up');
+      const down = moveButton(row, 'down');
       if (up) up.disabled = i === 0;
       if (down) down.disabled = i === rows.length - 1;
     });

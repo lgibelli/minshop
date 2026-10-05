@@ -12,41 +12,39 @@ const menuRefs = await menuReferencesFor(
   'page',
   pages.map((p) => p.id),
 );
-const dateFmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
+const { t, th, intl } = Astro.locals.i18n;
+const dateFmt = new Intl.DateTimeFormat(intl, { dateStyle: 'medium' });
 const formatDate = (iso: string) => dateFmt.format(new Date(`${iso.replace(' ', 'T')}Z`));
+// Messages land inside single-quoted JS strings in inline confirm() handlers.
+const jsQuote = (s: string) => s.replace(/[\\']/g, '\\$&');
 ---
 
-<AdminLayout title="Pages" active="pages">
+<AdminLayout title={t('adminContent.pages.title')} active="pages">
   <div class="mb-8 flex items-center justify-between">
-    <h1 class="font-serif text-3xl tracking-tight">Pages</h1>
+    <h1 class="font-serif text-3xl tracking-tight">{t('adminContent.pages.title')}</h1>
     <a
       href="/admin/pages/new"
       class="rounded-md bg-brand px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-brand-hover"
     >
-      New page
+      {t('adminContent.pages.newPage')}
     </a>
   </div>
 
   {
     pages.length === 0 ? (
       <p class="py-12 text-center text-sm text-gray-500">
-        No pages yet. Create one for About, Shipping, Returns, or Privacy, then add it to your
-        {' '}
-        <a href="/admin/navigation" class="underline hover:text-brand">
-          navigation
-        </a>{' '}
-        so shoppers can find it.
+        <Fragment set:html={th('adminContent.pages.empty', { href: '/admin/navigation' })} />
       </p>
     ) : (
       <div class="sm:overflow-x-auto">
         <table class="admin-table w-full text-left text-sm sm:min-w-[40rem]">
           <thead>
             <tr class="border-b border-line text-xs uppercase tracking-widest text-gray-400">
-              <th class="py-3 pr-4 font-normal">Title</th>
-              <th class="py-3 pr-4 font-normal">URL</th>
-              <th class="py-3 pr-4 font-normal">Status</th>
-              <th class="py-3 pr-4 font-normal">Updated</th>
-              <th class="py-3 text-right font-normal">Actions</th>
+              <th class="py-3 pr-4 font-normal">{t('adminContent.pages.colTitle')}</th>
+              <th class="py-3 pr-4 font-normal">{t('adminContent.pages.colUrl')}</th>
+              <th class="py-3 pr-4 font-normal">{t('adminContent.pages.colStatus')}</th>
+              <th class="py-3 pr-4 font-normal">{t('adminContent.pages.colUpdated')}</th>
+              <th class="py-3 text-right font-normal">{t('adminContent.pages.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -57,15 +55,15 @@ const formatDate = (iso: string) => dateFmt.format(new Date(`${iso.replace(' ', 
                     {page.title}
                   </a>
                 </td>
-                <td data-label="URL" class="py-3 pr-4 text-gray-500">/pages/{page.slug}</td>
-                <td data-label="Status" class="py-3 pr-4">
+                <td data-label={t('adminContent.pages.colUrl')} class="py-3 pr-4 text-gray-500">/pages/{page.slug}</td>
+                <td data-label={t('adminContent.pages.colStatus')} class="py-3 pr-4">
                   {page.published ? (
-                    <span class="text-gray-600">Published</span>
+                    <span class="text-gray-600">{t('adminContent.pages.published')}</span>
                   ) : (
-                    <span class="text-gray-400">Draft</span>
+                    <span class="text-gray-400">{t('adminContent.pages.draft')}</span>
                   )}
                 </td>
-                <td data-label="Updated" class="py-3 pr-4 text-gray-500">
+                <td data-label={t('adminContent.pages.colUpdated')} class="py-3 pr-4 text-gray-500">
                   {formatDate(page.updated_at)}
                 </td>
                 <td class="py-3 text-right">
@@ -77,30 +75,30 @@ const formatDate = (iso: string) => dateFmt.format(new Date(`${iso.replace(' ', 
                         rel="noopener"
                         class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
                       >
-                        View
+                        {t('adminContent.pages.view')}
                       </a>
                     )}
                     <a
                       href={`/admin/pages/${page.public_id}/edit`}
                       class="text-xs uppercase tracking-widest text-gray-500 hover:text-brand"
                     >
-                      Edit
+                      {t('adminContent.pages.edit')}
                     </a>
                     <form
                       method="POST"
                       action={`/api/admin/pages/${page.public_id}`}
-                      onsubmit={`return confirm('${
+                      onsubmit={`return confirm('${jsQuote(
                         menuRefs.has(page.id)
-                          ? 'This page is linked from your navigation. Deleting it hides that link on the storefront. Continue?'
-                          : 'Delete this page?'
-                      }')`}
+                          ? t('adminContent.pages.deleteLinkedConfirm')
+                          : t('adminContent.pages.deleteConfirm'),
+                      )}')`}
                     >
                       <input type="hidden" name="_action" value="delete" />
                       <button
                         type="submit"
                         class="text-xs uppercase tracking-widest text-red-600 hover:text-red-700"
                       >
-                        Delete
+                        {t('adminContent.pages.delete')}
                       </button>
                     </form>
                   </span>
