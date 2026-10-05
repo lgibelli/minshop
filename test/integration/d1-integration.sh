@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The build speaks the store's configured language (store.config.ts `locale`), so
+# UI text these checks look for comes from the same catalog, HTML-escaped the way
+# the page renders it.
+ui_text() {
+  node --experimental-strip-types --no-warnings --input-type=module -e '
+    const root = process.cwd();
+    const { storeOverrides } = await import(`${root}/src/store.config.ts`);
+    const { createI18n, resolveLocale, escapeHtml } = await import(`${root}/src/i18n/core.ts`);
+    process.stdout.write(escapeHtml(createI18n(resolveLocale(storeOverrides.locale)).t(process.argv[1])));
+  ' "$1"
+}
+
 # Clean-room D1 integration gate: use an isolated Miniflare state directory so
 # neither a developer's normal local database nor production can be touched.
 state_dir="$(mktemp -d "${TMPDIR:-/tmp}/minshop-d1-integration.XXXXXX")"
@@ -458,7 +470,7 @@ if ! grep -q '<link rel="canonical" href="https://canonical.example/"' "$storefr
   echo "D1 integration failed: storefront canonical did not use CANONICAL_ORIGIN" >&2
   exit 1
 fi
-if grep -q 'Cart (1)' "$storefront_body"; then
+if grep -qF "$(ui_text storefront.header.cart) (1)" "$storefront_body"; then
   echo "D1 integration failed: shared storefront leaked a personalized cart count" >&2
   exit 1
 fi
@@ -558,7 +570,7 @@ originless_status="$(curl --max-time 30 --silent --output "$originless_decline" 
   -H 'content-type: application/x-www-form-urlencoded' \
   --data 'outcome=decline&email=integration%40example.com' \
   "http://127.0.0.1:$test_port$pay_path")"
-if [[ "$originless_status" != "200" ]] || ! grep -q 'Payment declined' "$originless_decline"; then
+if [[ "$originless_status" != "200" ]] || ! grep -qF "$(ui_text checkout.demo.declinedCard)" "$originless_decline"; then
   echo "D1 integration failed: originless capability payment returned HTTP $originless_status" >&2
   exit 1
 fi
