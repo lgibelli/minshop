@@ -21,6 +21,10 @@ switch the admin language from the sidebar; the choice is stored in a cookie.
 
 ## Writing translatable code
 
+A new English message needs its `pl` and `it` entries in the same change:
+`npm test` fails on an incomplete bundled translation.
+
+
 Catalogs live in `src/i18n/messages/<locale>/<area>.ts`. Every key is prefixed by
 its area (`checkout.placeOrder`), so the files never collide. `core.ts` binds
 the catalogs; the formatting itself (`format.ts`) has no catalog imports, for
@@ -54,8 +58,9 @@ URL slugs, CSS classes, or the MCP server.
 ## Adding a language
 
 1. Copy `src/i18n/messages/en/` to `src/i18n/messages/<code>/` and translate the
-   values. Type each file as `satisfies Catalog`; missing keys fall back to
-   English, and `npm test` fails if a translation's `{placeholders}` don't
-   match English.
+   values. Type each file as `satisfies Catalog`. At runtime a missing key
+   falls back to English, but `npm test` requires every bundled translation to
+   be complete (every key, every plural form the language needs) with the same
+   `{placeholders}` as English.
 2. Add the code to `LOCALES` in `src/i18n/core.ts` with its native label and
    the BCP 47 tag Intl should format with (`'de-DE'`).

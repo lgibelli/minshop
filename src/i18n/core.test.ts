@@ -67,6 +67,24 @@ describe('i18n core', () => {
     }
   });
 
+  it('every bundled translation is complete, with every plural form its language needs', () => {
+    for (const [code, info] of Object.entries(LOCALES)) {
+      if (code === 'en') continue;
+      const messages = info.messages as Record<string, Message | undefined>;
+      const missing = Object.keys(en).filter((key) => messages[key] === undefined);
+      expect(missing, `${code} is missing ${missing.length} key(s)`).toEqual([]);
+      const forms = new Intl.PluralRules(info.intl).resolvedOptions().pluralCategories;
+      for (const [key, source] of Object.entries(en as Record<string, Message>)) {
+        if (typeof source === 'string') continue;
+        const message = messages[key];
+        expect(typeof message, `${code}: ${key} must have plural forms`).toBe('object');
+        for (const form of forms) {
+          expect((message as Record<string, string>)[form], `${code}: ${key}.${form}`).toBeTypeOf('string');
+        }
+      }
+    }
+  });
+
   it('every English plural message has an `other` form', () => {
     for (const [key, message] of Object.entries(en as Record<string, Message>)) {
       if (typeof message !== 'string') expect(message.other, key).toBeTypeOf('string');
