@@ -3,6 +3,7 @@ import { listProductImages } from './db';
 import { toMinorUnits } from '../../money';
 import { toGrams, type WeightUnit } from '../shipping/weight';
 import { withPublicId } from '../ids/publicId.ts';
+import { enI18n, type I18n } from '../../i18n/core';
 
 /** A purchasable variant (the SKU/inventory unit). A product has 0 or N. */
 export interface ProductVariant {
@@ -305,20 +306,20 @@ export async function deleteExtra(db: D1Database, id: number): Promise<void> {
 export function validateVariantWeights(
   form: FormData,
   weightUnit: WeightUnit,
+  i18n: I18n = enI18n,
 ): string | null {
   const raws = form.getAll('v_weight').map((v) => String(v));
   for (let i = 0; i < raws.length; i++) {
     const parsed = toGrams(raws[i]!, weightUnit);
     if (parsed.status !== 'error') continue;
-    const what =
-      parsed.reason === 'negative'
-        ? 'weight cannot be negative.'
-        : parsed.reason === 'precision'
-          ? `weight has too many decimal places for ${weightUnit}.`
-          : parsed.reason === 'over_limit'
-            ? 'weight is too heavy for parcel shipping.'
-            : 'weight must be a number.';
-    return `Variant ${i + 1}: ${what}`;
+    const params = { n: i + 1, unit: weightUnit };
+    return parsed.reason === 'negative'
+      ? i18n.t('adminProducts.variants.weightNegative', params)
+      : parsed.reason === 'precision'
+        ? i18n.t('adminProducts.variants.weightPrecision', params)
+        : parsed.reason === 'over_limit'
+          ? i18n.t('adminProducts.variants.weightTooHeavy', params)
+          : i18n.t('adminProducts.variants.weightNotNumber', params);
   }
   return null;
 }
@@ -329,6 +330,7 @@ export async function applyVariantForm(
   form: FormData,
   currency: string,
   weightUnit: WeightUnit = 'g',
+  i18n: I18n = enI18n,
 ): Promise<{ error?: string }> {
   const str = (name: string) => form.getAll(name).map((v) => String(v));
   const ids = (name: string) =>
@@ -350,7 +352,7 @@ export async function applyVariantForm(
 
   // Endpoints must call validateVariantWeights BEFORE their first write; this
   // recheck only guards direct callers that skipped it.
-  const invalid = validateVariantWeights(form, weightUnit);
+  const invalid = validateVariantWeights(form, weightUnit, i18n);
   if (invalid) return { error: invalid };
 
   // The variant group label (null clears it).

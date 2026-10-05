@@ -4,6 +4,7 @@
 // value bound. The clause is shared by the list and the count query, so the
 // pager can't advertise pages the filter has already excluded.
 
+import { enI18n, type I18n } from '../../i18n/core';
 import { LOW_STOCK, type StockState } from './stock';
 
 export interface ProductFilters {
@@ -13,16 +14,22 @@ export interface ProductFilters {
   q: string | null;
 }
 
-export const PRODUCT_STATUS_OPTIONS: { value: 'active' | 'inactive'; label: string }[] = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Hidden' },
-];
+export function productStatusOptions(
+  i18n: I18n = enI18n,
+): { value: 'active' | 'inactive'; label: string }[] {
+  return [
+    { value: 'active', label: i18n.t('adminProducts.filter.active') },
+    { value: 'inactive', label: i18n.t('adminProducts.filter.hidden') },
+  ];
+}
 
-export const PRODUCT_STOCK_OPTIONS: { value: StockState; label: string }[] = [
-  { value: 'in', label: 'In stock' },
-  { value: 'low', label: `Low stock (≤ ${LOW_STOCK})` },
-  { value: 'out', label: 'Out of stock' },
-];
+export function productStockOptions(i18n: I18n = enI18n): { value: StockState; label: string }[] {
+  return [
+    { value: 'in', label: i18n.t('adminProducts.filter.inStock') },
+    { value: 'low', label: i18n.t('adminProducts.filter.lowStock', { max: LOW_STOCK }) },
+    { value: 'out', label: i18n.t('adminProducts.filter.outOfStock') },
+  ];
+}
 
 // The same boundaries stockState() uses for display, so a product badged "Low"
 // is exactly one the Low filter returns.

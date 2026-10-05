@@ -5,29 +5,23 @@ import type { StorageProvider } from '../storage';
 import { createMediaRecord, type Media } from './db.ts';
 import { readImageDimensions } from './dimensions.ts';
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
- * SVG is deliberately absent: uploaded objects are served from the store's own
- * origin, and an SVG is a script-execution vector there.
+ * Accepted image types → stored extension. SVG is deliberately absent: uploaded
+ * objects are served from the store's own origin, and an SVG is a
+ * script-execution vector there.
+ *
+ * The check itself, validateUpload(), lives in ./text.ts with the other
+ * merchant-facing media text: this module is loaded under Node's type stripping
+ * by test/integration/media.mjs, where the translator cannot load.
  */
-const ALLOWED = new Map([
+export const UPLOAD_EXTENSIONS = new Map([
   ['image/jpeg', 'jpg'],
   ['image/png', 'png'],
   ['image/webp', 'webp'],
   ['image/gif', 'gif'],
 ]);
-
-/** Returns a user-facing error string if the upload is invalid, else null. */
-export function validateUpload(file: File): string | null {
-  if (!ALLOWED.has(file.type)) {
-    return 'Image must be JPEG, PNG, WebP, or GIF.';
-  }
-  if (file.size > MAX_BYTES) {
-    return 'Image must be 5 MB or smaller.';
-  }
-  return null;
-}
 
 /**
  * Immutable per-upload key. Never reuse one: /images/* is served immutable.
@@ -51,7 +45,7 @@ export function validateUpload(file: File): string | null {
  * fix is never retroactive.
  */
 export function mediaKeyFor(file: File): string {
-  const ext = ALLOWED.get(file.type) ?? 'bin';
+  const ext = UPLOAD_EXTENSIONS.get(file.type) ?? 'bin';
   const id = crypto.getRandomValues(new Uint8Array(10));
   return `media/${[...id].map((b) => b.toString(16).padStart(2, '0')).join('')}.${ext}`;
 }

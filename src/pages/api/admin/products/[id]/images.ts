@@ -15,6 +15,7 @@ import { validateImage } from '../../../../../features/products/image';
 import { optimizeUpload } from '../../../../../features/products/imageOptimize';
 import { uploadMedia } from '../../../../../features/media/upload';
 import { attachMediaToProduct, getMediaByPublicId } from '../../../../../features/media/db';
+import { attachError } from '../../../../../features/media/text';
 import { getStorage } from '../../../../../features/storage';
 import { parsePublicId } from '../../../../../features/ids/publicId';
 import { CACHE_TAG } from '../../../../../features/cache/tags';
@@ -34,10 +35,11 @@ export const prerender = false;
 //   _action=move     → swap image `image_id` up/down one slot
 //   _action=alt      → set image `image_id`'s alt text
 //   _action=delete   → remove image `image_id` (association only)
-export const POST: APIRoute = async ({ request, params, redirect }) => {
+export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
+  const { i18n } = locals;
   const publicId = parsePublicId(params.id, 'product');
   const product = publicId ? await getProductByPublicId(env.DB, publicId) : null;
-  if (!publicId || !product) return new Response('Not found', { status: 404 });
+  if (!publicId || !product) return new Response(i18n.t('admin.notFound'), { status: 404 });
   const id = product.id;
 
   const back = (msg?: string) =>
@@ -55,13 +57,13 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   if (action === 'add') {
     const files = form.getAll('images').filter((f): f is File => f instanceof File && f.size > 0);
     for (const file of files) {
-      const imgErr = validateImage(file);
+      const imgErr = validateImage(file, i18n);
       if (imgErr) return back(imgErr);
     }
     for (const file of files) {
       const media = await uploadMedia(env.DB, storage, await optimizeUpload(file), file.name);
       const attached = await attachMediaToProduct(env.DB, id, media.id);
-      if (!attached.ok) return back(attached.error);
+      if (!attached.ok) return back(attachError(attached.reason, i18n));
     }
     await syncPrimaryImage(env.DB, id); // first image stays primary
     await purgeProduct();
@@ -74,9 +76,9 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   if (action === 'attach') {
     const mediaPublicId = parsePublicId(form.get('media_id'), 'media');
     const media = mediaPublicId ? await getMediaByPublicId(env.DB, mediaPublicId) : null;
-    if (!media) return back('Choose an image.');
+    if (!media) return back(i18n.t('adminProducts.api.chooseImage'));
     const attached = await attachMediaToProduct(env.DB, id, media.id);
-    if (!attached.ok) return back(attached.error);
+    if (!attached.ok) return back(attachError(attached.reason, i18n));
     await syncPrimaryImage(env.DB, id);
     await purgeProduct();
     return back();
@@ -102,7 +104,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
 
   const imagePublicId = parsePublicId(form.get('image_id'), 'productImage');
   const img = imagePublicId ? byPublicId.get(imagePublicId) : undefined;
-  if (!img) return back('Image not found.');
+  if (!img) return back(i18n.t('adminProducts.api.imageNotFound'));
   const imageId = img.id;
 
   if (action === 'alt') {
@@ -137,5 +139,5 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
     return back();
   }
 
-  return back('Unknown action.');
+  return back(i18n.t('adminProducts.api.unknownAction'));
 };

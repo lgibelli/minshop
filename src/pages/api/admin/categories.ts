@@ -11,9 +11,10 @@ export const prerender = false;
 const fail = (msg: string) => `/admin/categories/new?error=${encodeURIComponent(msg)}`;
 
 // POST /api/admin/categories — create a category, then redirect to the list.
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+  const { i18n } = locals;
   const form = await request.formData();
-  const parsed = parseCategoryForm(form);
+  const parsed = parseCategoryForm(form, i18n);
   if ('error' in parsed) return redirect(fail(parsed.error), 303);
 
   // The parent selector submits a cat_ public ID; resolve it to the row id here
@@ -21,7 +22,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   let parentId: number | null = null;
   if (parsed.data.parentPublicId) {
     const parent = await getCategoryByPublicId(env.DB, parsed.data.parentPublicId);
-    if (!parent) return redirect(fail('That parent category no longer exists.'), 303);
+    if (!parent) return redirect(fail(i18n.t('adminProducts.categories.parentGone')), 303);
     parentId = parent.id;
   }
 

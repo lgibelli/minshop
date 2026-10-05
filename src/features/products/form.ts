@@ -1,4 +1,5 @@
 import type { ProductFields } from './db';
+import { enI18n, type I18n } from '../../i18n/core';
 import { toMinorUnits } from '../../money';
 import { toGrams, type WeightUnit } from '../shipping/weight';
 
@@ -18,25 +19,26 @@ export interface ProductFormOptions {
  * (e.g. dollars) and are stored as integer minor units, scaled by the product's
  * currency (×100 for USD, ×1 for JPY). Weight arrives in the store's display unit
  * and is stored as integer grams. The image upload is handled by the endpoint, not
- * here. Returns either the clean fields or a user-facing error.
+ * here. Returns either the clean fields or a user-facing error, in `i18n`'s language.
  */
 export function parseProductForm(
   form: FormData,
   options: ProductFormOptions = {},
+  i18n: I18n = enI18n,
 ): { data: ProductFields } | { error: string } {
   const { unit = 'g', requireWeight = false } = options;
 
   const name = String(form.get('name') ?? '').trim();
-  if (!name) return { error: 'Name is required.' };
+  if (!name) return { error: i18n.t('adminProducts.validation.nameRequired') };
 
   const price = Number(String(form.get('price') ?? '').trim());
   if (!Number.isFinite(price) || price < 0) {
-    return { error: 'Price must be a non-negative number.' };
+    return { error: i18n.t('adminProducts.validation.priceInvalid') };
   }
 
   const stock = Number(String(form.get('stock') ?? '0').trim());
   if (!Number.isInteger(stock) || stock < 0) {
-    return { error: 'Stock must be a non-negative whole number.' };
+    return { error: i18n.t('adminProducts.validation.stockInvalid') };
   }
 
   const currency = String(form.get('currency') ?? 'usd').trim().toLowerCase() || 'usd';
@@ -52,13 +54,9 @@ export function parseProductForm(
   if (parsedWeight.status === 'ok') {
     weight_grams = parsedWeight.grams;
   } else if (parsedWeight.status === 'error') {
-    return { error: weightFieldError(parsedWeight.reason, unit) };
+    return { error: weightFieldError(parsedWeight.reason, unit, i18n) };
   } else if (requireWeight && requires_shipping === 1 && active === 1) {
-    return {
-      error:
-        'This product needs a shipping weight: every shipping zone prices by weight, ' +
-        'so without one it cannot be purchased.',
-    };
+    return { error: i18n.t('adminProducts.validation.weightRequired') };
   }
 
   return {
@@ -69,15 +67,16 @@ export function parseProductForm(
 function weightFieldError(
   reason: 'not_number' | 'negative' | 'precision' | 'over_limit',
   unit: WeightUnit,
+  i18n: I18n,
 ): string {
   switch (reason) {
     case 'negative':
-      return 'Weight cannot be negative.';
+      return i18n.t('adminProducts.validation.weightNegative');
     case 'precision':
-      return `Weight has too many decimal places for ${unit}.`;
+      return i18n.t('adminProducts.validation.weightPrecision', { unit });
     case 'over_limit':
-      return 'Weight is too heavy for parcel shipping.';
+      return i18n.t('adminProducts.validation.weightTooHeavy');
     default:
-      return 'Weight must be a number.';
+      return i18n.t('adminProducts.validation.weightNotNumber');
   }
 }

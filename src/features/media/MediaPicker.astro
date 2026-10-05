@@ -12,7 +12,7 @@
  * with the choice (attach to a gallery, set the logo, insert Markdown).
  *
  * Without JavaScript the dialog never opens; the trigger falls back to a plain
- * link to /admin/media.
+ * link to /admin/media. The script's words arrive as data-msg-* on the root.
  */
 interface Props {
   /** Unique per page — lets a page host more than one picker. */
@@ -25,15 +25,26 @@ interface Props {
   buttonClass?: string;
 }
 
+const { t } = Astro.locals.i18n;
 const {
   id,
-  label = 'Choose from Media',
+  label = t('adminProducts.picker.trigger'),
   allowUpload = true,
   buttonClass = 'rounded-md border border-line px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted hover:border-brand hover:text-brand',
 } = Astro.props;
 ---
 
-<div class="inline-flex" data-media-picker={id}>
+<div
+  class="inline-flex"
+  data-media-picker={id}
+  data-msg-loading={t('adminProducts.picker.loading')}
+  data-msg-no-images={t('adminProducts.picker.noImages')}
+  data-msg-count={t('adminProducts.picker.count')}
+  data-msg-choose-file={t('adminProducts.picker.chooseFileFirst')}
+  data-msg-upload-failed={t('adminProducts.picker.uploadFailed')}
+  data-msg-load-failed={t('adminProducts.picker.loadFailed')}
+  data-msg-list-failed={t('adminProducts.picker.listFailed')}
+>
   <button
     type="button"
     data-picker-open
@@ -53,15 +64,15 @@ const {
 
   <dialog
     data-picker-dialog
-    aria-label="Choose an image"
+    aria-label={t('adminProducts.picker.title')}
     class="w-[min(56rem,92vw)] rounded-md border border-line p-0 backdrop:bg-black/40"
   >
     <div class="flex items-center justify-between border-b border-line px-5 py-4">
-      <h2 class="font-serif text-xl tracking-tight">Choose an image</h2>
+      <h2 class="font-serif text-xl tracking-tight">{t('adminProducts.picker.title')}</h2>
       <button
         type="button"
         data-picker-close
-        aria-label="Close"
+        aria-label={t('adminProducts.picker.close')}
         class="text-2xl leading-none text-faint hover:text-brand"
       >
         &times;
@@ -82,7 +93,7 @@ const {
             data-picker-upload
             class="rounded-md bg-brand px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-on-brand hover:bg-brand-hover"
           >
-            Upload
+            {t('adminProducts.picker.upload')}
           </button>
         </div>
       )
@@ -91,7 +102,7 @@ const {
     <p data-picker-error class="hidden px-5 pt-3 text-sm text-red-700"></p>
 
     <div data-picker-grid class="grid max-h-[60vh] grid-cols-3 gap-4 overflow-y-auto p-5 sm:grid-cols-4">
-      <p class="col-span-full py-8 text-center text-sm text-muted">Loading…</p>
+      <p class="col-span-full py-8 text-center text-sm text-muted">{t('adminProducts.picker.loading')}</p>
     </div>
 
     <div class="flex items-center justify-between border-t border-line px-5 py-3 text-xs">
@@ -102,14 +113,14 @@ const {
           data-picker-prev
           class="rounded-md border border-line px-3 py-1.5 uppercase tracking-widest text-muted disabled:opacity-40"
         >
-          Previous
+          {t('adminProducts.picker.previous')}
         </button>
         <button
           type="button"
           data-picker-next
           class="rounded-md border border-line px-3 py-1.5 uppercase tracking-widest text-muted disabled:opacity-40"
         >
-          Next
+          {t('adminProducts.picker.next')}
         </button>
       </span>
     </div>
@@ -144,6 +155,18 @@ const {
     const next = root.querySelector<HTMLButtonElement>('[data-picker-next]')!;
     const openBtn = root.querySelector<HTMLButtonElement>('[data-picker-open]')!;
     const fallback = root.querySelector<HTMLElement>('[data-picker-fallback]')!;
+    // Translated server-side (data-msg-*); `{name}` placeholders are filled here.
+    const msg = (name: string, params: Record<string, string | number> = {}) =>
+      (root.dataset[name] ?? '').replace(/\{(\w+)\}/g, (match, key: string) =>
+        key in params ? String(params[key]) : match,
+      );
+    // A full-width notice in the grid (set as text: translations are not markup).
+    const notice = (text: string) => {
+      const p = document.createElement('p');
+      p.className = 'col-span-full py-8 text-center text-sm text-muted';
+      p.textContent = text;
+      grid.replaceChildren(p);
+    };
 
     // JS is available, so swap the plain link for the dialog trigger.
     openBtn.hidden = false;
@@ -160,26 +183,23 @@ const {
 
     async function load() {
       clearError();
-      grid.innerHTML = '<p class="col-span-full py-8 text-center text-sm text-muted">Loading…</p>';
+      notice(msg('msgLoading'));
       let payload: PickerPage;
       try {
         const res = await fetch(`/api/admin/media?limit=${PAGE_SIZE}&offset=${offset}`, {
           headers: { accept: 'application/json' },
         });
-        if (!res.ok) throw new Error(`Media list failed (${res.status})`);
+        if (!res.ok) throw new Error(msg('msgListFailed', { status: res.status }));
         payload = (await res.json()) as PickerPage;
       } catch (err) {
         grid.innerHTML = '';
-        showError(err instanceof Error ? err.message : 'Could not load media.');
+        showError(err instanceof Error ? err.message : msg('msgLoadFailed'));
         return;
       }
 
       total = payload.total;
       grid.innerHTML = '';
-      if (payload.media.length === 0) {
-        grid.innerHTML =
-          '<p class="col-span-full py-8 text-center text-sm text-muted">No images yet.</p>';
-      }
+      if (payload.media.length === 0) notice(msg('msgNoImages'));
       for (const item of payload.media) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -203,7 +223,7 @@ const {
       }
 
       const from = total === 0 ? 0 : offset + 1;
-      countEl.textContent = `${from}–${offset + payload.media.length} of ${total}`;
+      countEl.textContent = msg('msgCount', { from, to: offset + payload.media.length, total });
       prev.disabled = offset === 0;
       next.disabled = offset + PAGE_SIZE >= total;
     }
@@ -227,7 +247,7 @@ const {
     uploadBtn?.addEventListener('click', async () => {
       const input = root.querySelector<HTMLInputElement>('[data-picker-file]')!;
       const file = input.files?.[0];
-      if (!file) return showError('Choose a file first.');
+      if (!file) return showError(msg('msgChooseFile'));
       clearError();
       uploadBtn.disabled = true;
       try {
@@ -239,12 +259,12 @@ const {
           body,
         });
         const payload = (await res.json()) as { error?: string };
-        if (!res.ok) throw new Error(payload.error ?? 'Upload failed.');
+        if (!res.ok) throw new Error(payload.error ?? msg('msgUploadFailed'));
         input.value = '';
         offset = 0; // newest first, so the upload lands on page one
         await load();
       } catch (err) {
-        showError(err instanceof Error ? err.message : 'Upload failed.');
+        showError(err instanceof Error ? err.message : msg('msgUploadFailed'));
       } finally {
         uploadBtn.disabled = false;
       }

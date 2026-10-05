@@ -145,9 +145,13 @@ export async function deleteMediaRecord(
   return row?.image_key ?? null;
 }
 
+/** Why an attach was refused. Screens word it with attachError() in ./text.ts. */
+export type AttachFailure = 'already_attached' | 'media_missing';
+
 export type AttachResult =
   | { ok: true; imageKey: string }
-  | { ok: false; error: string };
+  /** `error` is the English description (logs, integration tests). */
+  | { ok: false; reason: AttachFailure; error: string };
 
 /**
  * Append a media item to a product's gallery, guarded on the media row still
@@ -190,8 +194,12 @@ export async function attachMediaToProduct(
   // Nothing inserted — say which of the two guards refused.
   const media = await getMedia(db, mediaId);
   return media
-    ? { ok: false, error: 'That image is already in this product’s gallery.' }
-    : { ok: false, error: 'That image is no longer in the media library.' };
+    ? {
+        ok: false,
+        reason: 'already_attached',
+        error: 'That image is already in this product’s gallery.',
+      }
+    : { ok: false, reason: 'media_missing', error: 'That image is no longer in the media library.' };
 }
 
 /**

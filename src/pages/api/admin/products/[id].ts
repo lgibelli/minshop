@@ -30,6 +30,7 @@ import {
   attachMediaToProduct,
   replaceProductImageFromMedia,
 } from '../../../../features/media/db';
+import { attachError } from '../../../../features/media/text';
 import { getStorage, getFileStorage } from '../../../../features/storage';
 import { uploadDigitalFile, validateDigitalFile } from '../../../../features/products/digitalFile.ts';
 import { attachmentActive } from '../../../../features/digitalDelivery/rollout.ts';
@@ -37,6 +38,7 @@ import { indexProduct, unindexProduct } from '../../../../features/search';
 import { parsePublicId } from '../../../../features/ids/publicId';
 import { CACHE_TAG } from '../../../../features/cache/tags';
 import { purgeCacheTags } from '../../../../features/cache/purge';
+import type { I18n } from '../../../../i18n/core';
 
 export const prerender = false;
 
@@ -51,6 +53,7 @@ async function resolveVariantFormIds(
   form: FormData,
   db: typeof env.DB,
   productId: number,
+  i18n: I18n,
 ): Promise<string | null> {
   const variants = new Map(
     (await listVariants(db, productId, true)).map((v) => [v.public_id ?? '', v.id]),
@@ -87,13 +90,13 @@ async function resolveVariantFormIds(
   };
 
   if (!translate('v_id', variants, 'variant') || !translate('v_remove', variants, 'variant')) {
-    return 'One of the variants no longer exists — reload and try again.';
+    return i18n.t('adminProducts.api.variantGone');
   }
   if (!translate('e_id', extras, 'extra') || !translate('e_remove', extras, 'extra')) {
-    return 'One of the add-ons no longer exists — reload and try again.';
+    return i18n.t('adminProducts.api.addOnGone');
   }
   if (!translate('v_image', images, 'productImage')) {
-    return 'One of the variant photos no longer exists — reload and try again.';
+    return i18n.t('adminProducts.api.variantPhotoGone');
   }
   return null;
 }
@@ -103,7 +106,8 @@ async function resolveVariantFormIds(
 export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
   const publicId = parsePublicId(params.id, 'product');
   const existing = publicId ? await getProductByPublicId(env.DB, publicId) : null;
-  if (!publicId || !existing) return new Response('Not found', { status: 404 });
+  const { i18n } = locals;
+  if (!publicId || !existing) return new Response(i18n.t('admin.notFound'), { status: 404 });
   const id = existing.id;
 
   const form = await request.formData();
@@ -130,20 +134,24 @@ export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
   // unsellable (every enabled zone prices by weight). Both come from settings the
   // request already loaded.
   const weightUnit = locals.settings?.weightUnit ?? 'g';
-  const parsed = parseProductForm(form, {
-    unit: weightUnit,
-    requireWeight: zonesRequireWeight(shippingFor(locals.settings).config),
-  });
+  const parsed = parseProductForm(
+    form,
+    {
+      unit: weightUnit,
+      requireWeight: zonesRequireWeight(shippingFor(locals.settings).config),
+    },
+    i18n,
+  );
   if ('error' in parsed) return fail(parsed.error);
 
   // Weights are checked before ANY write. applyVariantForm runs last, after the
   // image, product, and category mutations — reporting the error from there left
   // a half-saved edit behind the failure page.
-  const badWeight = validateVariantWeights(form, weightUnit);
+  const badWeight = validateVariantWeights(form, weightUnit, i18n);
   if (badWeight) return fail(badWeight);
 
   // Public-ID → row-id translation for the variants editor, before any write.
-  const badReference = await resolveVariantFormIds(form, env.DB, id);
+  const badReference = await resolveVariantFormIds(form, env.DB, id, i18n);
   if (badReference) return fail(badReference);
 
   // The uploaded key is NOT written to products.image_key here: that reference
@@ -154,14 +162,14 @@ export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
   let uploadedMediaId: number | null = null;
   const file = form.get('image');
   if (file instanceof File && file.size > 0) {
-    const imgErr = validateImage(file);
+    const imgErr = validateImage(file, i18n);
     if (imgErr) return fail(imgErr);
     const media = await uploadMedia(env.DB, storage, await optimizeUpload(file), file.name);
     uploadedMediaId = media.id;
   }
   const deliverable = form.get('deliverable');
   if (attachmentActive() && deliverable instanceof File && deliverable.size > 0) {
-    const fileError = validateDigitalFile(deliverable);
+    const fileError = validateDigitalFile(deliverable, i18n);
     if (fileError) return fail(fileError);
   }
 
@@ -184,7 +192,7 @@ export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
       // Either the product had no gallery row to repoint, or it did and the
       // media vanished. Attaching distinguishes the two and reports properly.
       const attached = await attachMediaToProduct(env.DB, id, uploadedMediaId);
-      if (!attached.ok) return fail(attached.error);
+      if (!attached.ok) return fail(attachError(attached.reason, i18n));
     }
   }
 
@@ -209,7 +217,14 @@ export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
   // Variants + extras edited inline on the same form (no-op if none submitted).
   // A bad variant weight is reported rather than dropped: applyVariantForm
   // validates every weight before it writes anything.
-  const variantResult = await applyVariantForm(env.DB, id, form, parsed.data.currency, weightUnit);
+  const variantResult = await applyVariantForm(
+    env.DB,
+    id,
+    form,
+    parsed.data.currency,
+    weightUnit,
+    i18n,
+  );
   if (variantResult.error) return fail(variantResult.error);
 
   // Re-embed for semantic search (no-op unless vector search is on).

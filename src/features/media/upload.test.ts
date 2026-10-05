@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validateUpload, mediaKeyFor } from './upload';
+import { mediaKeyFor } from './upload';
+import { validateUpload } from './text';
 import { mediaUrl } from './url';
 
 const file = (type: string, size: number, name = 'photo.png') =>

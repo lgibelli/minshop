@@ -1,3 +1,5 @@
+import { enI18n, type I18n } from '../../i18n/core';
+
 export type AccessGateDecision =
   | { action: 'bootstrap' }
   | { action: 'deny'; message: string }
@@ -7,12 +9,14 @@ export type AccessGateDecision =
  * Decide whether a passwordless admin request may enter bootstrap or must pass
  * Cloudflare Access verification. Defining either Access variable opts the
  * deployment into fail-closed Access mode, including on the workers.dev origin
- * where the edge does not inject an assertion.
+ * where the edge does not inject an assertion. Deny messages are plain-text 403
+ * bodies the operator reads, so they come from `i18n`.
  */
 export function accessGateDecision(
   token: string | null,
   teamDomain: string | undefined,
   aud: string | undefined,
+  i18n: I18n = enI18n,
 ): AccessGateDecision {
   const accessConfigured = Boolean(teamDomain || aud);
 
@@ -20,11 +24,11 @@ export function accessGateDecision(
     if (!teamDomain || !aud) {
       return {
         action: 'deny',
-        message: 'Cloudflare Access is misconfigured: set both CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.',
+        message: i18n.t('admin.access.misconfigured'),
       };
     }
     if (!token) {
-      return { action: 'deny', message: 'Cloudflare Access authentication required.' };
+      return { action: 'deny', message: i18n.t('admin.access.required') };
     }
     return { action: 'verify', token, teamDomain, aud };
   }
@@ -35,7 +39,7 @@ export function accessGateDecision(
   if (token) {
     return {
       action: 'deny',
-      message: 'Cloudflare Access is not configured: set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.',
+      message: i18n.t('admin.access.notConfigured'),
     };
   }
   return { action: 'bootstrap' };
