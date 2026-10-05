@@ -14,6 +14,7 @@ import {
   pendingToPaidOrder,
 } from './lightning/pending';
 import { getConfig } from '../../config';
+import { storeI18n } from '../../i18n';
 
 export interface MintLightningOrderInput {
   origin: string;
@@ -56,7 +57,11 @@ export async function mintLightningOrder(
 
   const invoice = await backend.createInvoice({
     amountSat,
-    description: `${cfg.storeName} — order ${input.publicId.slice(0, 8)}`,
+    // Shown in the payer's wallet, so in the store's language.
+    description: storeI18n().t('checkout.lightning.invoiceDescription', {
+      store: cfg.storeName,
+      ref: input.publicId.slice(0, 8),
+    }),
     externalId: input.publicId,
     expirySeconds,
     // Per-provider path so Lightning settlements route to the Lightning verifier

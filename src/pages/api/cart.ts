@@ -13,7 +13,8 @@ export const prerender = false;
 // Lines are keyed by product[:variant][#extras] public-ID tuples. `add` resolves
 // the chosen variant + extras (validated against D1); `update`/`remove` act on
 // the line key. Numeric row IDs are never accepted.
-export const POST: APIRoute = async ({ request, cookies, url, redirect }) => {
+export const POST: APIRoute = async ({ request, cookies, url, redirect, locals }) => {
+  const { t } = locals.i18n;
   const form = await request.formData();
   const action = String(form.get('_action'));
   const cart = readCart(cookies);
@@ -54,9 +55,9 @@ export const POST: APIRoute = async ({ request, cookies, url, redirect }) => {
     const chosen = wanted ? variants.find((v) => v.public_id === wanted) : undefined;
     if (!chosen) {
       if (partial) return new Response(null, { status: 204 });
-      const label = product.variant_label || 'option';
+      const label = product.variant_label || t('cart.error.variantFallback');
       return redirect(
-        `/products/${product.slug}?error=${encodeURIComponent(`Please choose a ${label}.`)}`,
+        `/products/${product.slug}?error=${encodeURIComponent(t('cart.error.chooseVariant', { label }))}`,
         303,
       );
     }
