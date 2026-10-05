@@ -277,7 +277,7 @@ export const adminSettings = {
     'Alcune impostazioni iniziali: puoi cambiarle in qualsiasi momento in Impostazioni. Servono solo per partire.',
   'adminSettings.setup.basics': 'Dati di base del negozio',
   'adminSettings.setup.currencyNote':
-    'La valuta resta un’impostazione di build (è collegata a ogni prezzo): imposta <code class="rounded bg-gray-100 px-1">currency</code> in <code class="rounded bg-gray-100 px-1">src/config.ts</code>. Valuta attuale: {currency}.',
+    'La valuta resta un’impostazione di build (è collegata a ogni prezzo): imposta <code class="rounded bg-gray-100 px-1">currency</code> in <code class="rounded bg-gray-100 px-1">src/store.config.ts</code>. Valuta attuale: {currency}.',
   'adminSettings.setup.password': 'Password del pannello',
   'adminSettings.setup.passwordIntro':
     'Password per <code class="rounded bg-gray-100 px-1">/admin/login</code>: salvata come hash (PBKDF2), mai in chiaro.',

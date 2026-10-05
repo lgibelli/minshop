@@ -289,7 +289,7 @@ export const adminSettings = {
     'Kilka ustawień początkowych – możesz je zmienić w dowolnej chwili w Ustawieniach. To tylko szybki start.',
   'adminSettings.setup.basics': 'Podstawowe dane sklepu',
   'adminSettings.setup.currencyNote':
-    'Waluta pozostaje ustawieniem budowania (jest powiązana z każdą ceną) – ustaw <code class="rounded bg-gray-100 px-1">currency</code> w <code class="rounded bg-gray-100 px-1">src/config.ts</code>. Obecnie: {currency}.',
+    'Waluta pozostaje ustawieniem budowania (jest powiązana z każdą ceną) – ustaw <code class="rounded bg-gray-100 px-1">currency</code> w <code class="rounded bg-gray-100 px-1">src/store.config.ts</code>. Obecnie: {currency}.',
   'adminSettings.setup.password': 'Hasło do panelu',
   'adminSettings.setup.passwordIntro':
     'Hasło do <code class="rounded bg-gray-100 px-1">/admin/login</code> – przechowywane jako skrót (PBKDF2), nigdy jawnym tekstem.',

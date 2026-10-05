@@ -22,7 +22,7 @@ export const admin = {
   'admin.layout.inventoryAttention': {
     one: '<strong class="font-semibold">Inventory needs attention.</strong> {count} paid order line arrived after its stock hold ended and could not be fully deducted. Open the affected orders and reconcile stock.',
     other:
-      '<strong class="font-semibold">Inventory needs attention.</strong> {count} paid order lines arrived after its stock hold ended and could not be fully deducted. Open the affected orders and reconcile stock.',
+      '<strong class="font-semibold">Inventory needs attention.</strong> {count} paid order lines arrived after their stock hold ended and could not be fully deducted. Open the affected orders and reconcile stock.',
   },
   'admin.nav.heading': 'Admin',
   'admin.nav.toggle': 'Toggle admin sections',

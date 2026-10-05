@@ -284,7 +284,7 @@ export const adminSettings = {
     'A few first-run settings — you can change them any time in Settings. This just gets you running.',
   'adminSettings.setup.basics': 'Store basics',
   'adminSettings.setup.currencyNote':
-    'Currency stays a build-time setting (it\'s wired through every price) — set <code class="rounded bg-gray-100 px-1">currency</code> in <code class="rounded bg-gray-100 px-1">src/config.ts</code>. Current: {currency}.',
+    'Currency stays a build-time setting (it\'s wired through every price) — set <code class="rounded bg-gray-100 px-1">currency</code> in <code class="rounded bg-gray-100 px-1">src/store.config.ts</code>. Current: {currency}.',
   'adminSettings.setup.password': 'Admin password',
   'adminSettings.setup.passwordIntro':
     'Password for <code class="rounded bg-gray-100 px-1">/admin/login</code> — stored hashed (PBKDF2), never plaintext.',
