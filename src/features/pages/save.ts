@@ -2,6 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { findMediaByKeys, pageMediaClaimStatements } from '../media/db.ts';
 import { extractMediaKeys } from './markdown.ts';
 import { type Page } from './db.ts';
+import { enI18n, type I18n } from '../../i18n/core.ts';
 
 export interface SaveResult {
   /** Keys the body references that are not in the media library. */
@@ -97,16 +98,10 @@ export async function savePageBody(
 }
 
 /** Admin-facing summary of what happened, or '' when everything resolved. */
-export function saveWarning(result: SaveResult): string {
+export function saveWarning(result: SaveResult, i18n: I18n = enI18n): string {
   if (result.unresolved.length === 0 && !result.publishRefused) return '';
   const count = Math.max(result.unresolved.length, 1);
-  const images = `${count} image${count === 1 ? '' : 's'}`;
-  const is = count === 1 ? 'is' : 'are';
-  if (result.publishRefused) {
-    return `Changes saved, but this page was not published because ${images} ${is} missing from the media library.`;
-  }
-  if (result.published === 1) {
-    return `Changes saved and live, but ${images} ${is} missing from the media library and will render broken.`;
-  }
-  return `Draft saved, but ${images} ${is} missing from the media library.`;
+  if (result.publishRefused) return i18n.t('adminContent.save.publishRefused', { count });
+  if (result.published === 1) return i18n.t('adminContent.save.liveBroken', { count });
+  return i18n.t('adminContent.save.draftMissing', { count });
 }

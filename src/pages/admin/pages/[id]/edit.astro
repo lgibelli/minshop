@@ -4,60 +4,79 @@ import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import MediaPicker from '../../../../features/media/MediaPicker.astro';
 import { getPageByPublicId } from '../../../../features/pages/db';
 import {
-  PAGE_LAYOUT_OPTIONS,
+  pageLayoutOptions,
   normalizePageLayout,
 } from '../../../../features/pages/layouts';
 import { parsePublicId } from '../../../../features/ids/publicId';
 
+const i18n = Astro.locals.i18n;
+const { t, th } = i18n;
+
 // The route param is the page_ public ID; numeric row ids are not accepted.
 const publicId = parsePublicId(Astro.params.id, 'page');
 const page = publicId ? await getPageByPublicId(env.DB, publicId) : null;
-if (!page) return new Response('Not found', { status: 404 });
+if (!page) return new Response(t('adminContent.errors.notFound'), { status: 404 });
 
 const error = Astro.url.searchParams.get('error');
 const warning = Astro.url.searchParams.get('warning');
 const saved = Astro.url.searchParams.has('saved');
 const currentLayout = normalizePageLayout(page.layout);
+const layoutOptions = pageLayoutOptions(i18n);
 
 // Shown only while the body is empty. Doubles as the Markdown cheat sheet for a
 // merchant who has never written any — it covers exactly what the toolbar above
 // can insert, so the buttons and the hint teach the same syntax.
-const PLACEHOLDER = `## A section heading
-
-Write your page in Markdown. Blank lines separate paragraphs.
-
-**bold**  _italic_  \`code\`
-
-- a bulleted list
-- another item
-
-1. a numbered list
-2. another item
-
-> a quotation
-
-[a link](https://example.com)
-
-![describe the image](/images/media/photo.webp)`;
+const PLACEHOLDER = t('adminContent.editPage.placeholder');
 
 // Toolbar buttons are declarative: each carries the syntax to wrap or insert,
 // so the script stays one generic selection handler rather than nine.
+// H2 and 1. are Markdown syntax, so they read the same in every language.
 const tools = [
-  { action: 'prefix', value: '## ', label: 'H2', title: 'Heading' },
-  { action: 'wrap', value: '**', label: 'B', title: 'Bold' },
-  { action: 'wrap', value: '_', label: 'I', title: 'Italic' },
-  { action: 'link', value: '', label: 'Link', title: 'Link' },
-  { action: 'prefix', value: '- ', label: 'List', title: 'Bulleted list' },
-  { action: 'prefix', value: '1. ', label: '1.', title: 'Numbered list' },
-  { action: 'prefix', value: '> ', label: 'Quote', title: 'Blockquote' },
-  { action: 'wrap', value: '`', label: 'Code', title: 'Inline code' },
+  { action: 'prefix', value: '## ', label: 'H2', title: t('adminContent.editPage.toolHeading') },
+  {
+    action: 'wrap',
+    value: '**',
+    label: t('adminContent.editPage.toolBoldLabel'),
+    title: t('adminContent.editPage.toolBold'),
+  },
+  {
+    action: 'wrap',
+    value: '_',
+    label: t('adminContent.editPage.toolItalicLabel'),
+    title: t('adminContent.editPage.toolItalic'),
+  },
+  {
+    action: 'link',
+    value: '',
+    label: t('adminContent.editPage.toolLink'),
+    title: t('adminContent.editPage.toolLink'),
+  },
+  {
+    action: 'prefix',
+    value: '- ',
+    label: t('adminContent.editPage.toolListLabel'),
+    title: t('adminContent.editPage.toolList'),
+  },
+  { action: 'prefix', value: '1. ', label: '1.', title: t('adminContent.editPage.toolNumbered') },
+  {
+    action: 'prefix',
+    value: '> ',
+    label: t('adminContent.editPage.toolQuoteLabel'),
+    title: t('adminContent.editPage.toolQuote'),
+  },
+  {
+    action: 'wrap',
+    value: '`',
+    label: t('adminContent.editPage.toolCodeLabel'),
+    title: t('adminContent.editPage.toolCode'),
+  },
 ];
 ---
 
-<AdminLayout title={`Edit ${page.title}`} active="pages">
-  <a href="/admin/pages" class="text-sm text-gray-500 hover:text-brand">&larr; Back to pages</a>
+<AdminLayout title={t('adminContent.editPage.title', { title: page.title })} active="pages">
+  <a href="/admin/pages" class="text-sm text-gray-500 hover:text-brand">&larr; {t('adminContent.editPage.back')}</a>
   <div class="mt-4 mb-6 flex flex-wrap items-center justify-between gap-4">
-    <h1 class="font-serif text-3xl tracking-tight">Edit page</h1>
+    <h1 class="font-serif text-3xl tracking-tight">{t('adminContent.editPage.heading')}</h1>
     {
       page.published !== 0 && (
         <a
@@ -66,7 +85,7 @@ const tools = [
           rel="noopener"
           class="text-sm text-accent hover:underline"
         >
-          View on store ↗
+          {t('adminContent.editPage.viewOnStore')} ↗
         </a>
       )
     }
@@ -89,15 +108,24 @@ const tools = [
   {
     saved && !warning && (
       <p class="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-        Saved.
+        {t('adminContent.editPage.saved')}
       </p>
     )
   }
 
-  <form method="POST" action={`/api/admin/pages/${page.public_id}`} data-page-form>
+  <form
+    method="POST"
+    action={`/api/admin/pages/${page.public_id}`}
+    data-page-form
+    data-msg-rendering={t('adminContent.editPage.rendering')}
+    data-msg-preview-failed={t('adminContent.editPage.previewFailed')}
+    data-msg-preview-failed-status={t('adminContent.editPage.previewFailedStatus')}
+    data-msg-link-text={t('adminContent.editPage.linkText')}
+    data-msg-alt-prompt={t('adminContent.editPage.altPrompt')}
+  >
     <div class="flex flex-wrap gap-4">
       <label class="block flex-1 text-xs uppercase tracking-widest text-gray-400">
-        Title
+        {t('adminContent.editPage.fieldTitle')}
         <input
           type="text"
           name="title"
@@ -108,7 +136,7 @@ const tools = [
         />
       </label>
       <label class="block flex-1 text-xs uppercase tracking-widest text-gray-400">
-        Slug
+        {t('adminContent.editPage.fieldSlug')}
         <input
           type="text"
           name="slug"
@@ -128,7 +156,7 @@ const tools = [
         data-modes
         hidden
         role="group"
-        aria-label="Editor view"
+        aria-label={t('adminContent.editPage.editorView')}
         class="flex items-center gap-1 border-b border-line px-2 py-2"
       >
         <button
@@ -137,7 +165,7 @@ const tools = [
           class="rounded px-3 py-1.5 text-xs uppercase tracking-widest text-gray-500"
           aria-pressed="false"
         >
-          Markdown
+          {t('adminContent.editPage.modeMarkdown')}
         </button>
         <button
           type="button"
@@ -145,7 +173,7 @@ const tools = [
           class="rounded px-3 py-1.5 text-xs uppercase tracking-widest text-gray-500"
           aria-pressed="false"
         >
-          Split
+          {t('adminContent.editPage.modeSplit')}
         </button>
         <button
           type="button"
@@ -153,7 +181,7 @@ const tools = [
           class="rounded px-3 py-1.5 text-xs uppercase tracking-widest text-gray-500"
           aria-pressed="false"
         >
-          Preview
+          {t('adminContent.editPage.modePreview')}
         </button>
       </div>
 
@@ -187,7 +215,7 @@ const tools = [
                 preview in split view. */}
             <MediaPicker
               id="page-body"
-              label="Image"
+              label={t('adminContent.editPage.image')}
               buttonClass="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-brand"
             />
           </div>
@@ -217,7 +245,7 @@ const tools = [
           <div
             class="flex h-11 items-center justify-between border-b border-line px-4 text-xs uppercase tracking-widest text-gray-400"
           >
-            <span>Preview <span class="normal-case tracking-normal">· click to find the source</span></span>
+            <span><Fragment set:html={th('adminContent.editPage.previewHeading')} /></span>
             {/* Reserved space, so the row doesn't reflow each time it renders. */}
             <span data-preview-status class="text-gray-300"></span>
           </div>
@@ -232,14 +260,14 @@ const tools = [
     {/* Options are generated from features/pages/layouts.ts — adding a preset
         there adds it here with no change to this file. */}
     <label class="mt-6 block max-w-sm text-xs uppercase tracking-widest text-gray-400">
-      Layout
+      {t('adminContent.editPage.layout')}
       <select
         name="layout"
         data-layout-select
         class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm normal-case tracking-normal text-gray-900 focus:border-brand focus:outline-none"
       >
         {
-          PAGE_LAYOUT_OPTIONS.map((option) => (
+          layoutOptions.map((option) => (
             <option
               value={option.key}
               data-hint={option.hint}
@@ -251,24 +279,23 @@ const tools = [
         }
       </select>
       <span data-layout-hint class="mt-1 block normal-case tracking-normal text-gray-400">
-        {PAGE_LAYOUT_OPTIONS.find((o) => o.key === currentLayout)?.hint}
+        {layoutOptions.find((o) => o.key === currentLayout)?.hint}
       </span>
     </label>
 
     <div class="mt-6 flex flex-wrap items-center gap-4">
       <label class="flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" name="published" checked={page.published !== 0} class="rounded" />
-        Published
+        {t('adminContent.editPage.published')}
       </label>
       <button
         type="submit"
         class="rounded-md bg-brand px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-brand-hover"
       >
-        Save
+        {t('adminContent.editPage.save')}
       </button>
       <span class="text-xs text-gray-400">
-        Published pages appear in the footer and sitemap. Storefront caching means a change
-        can take up to a minute to appear.
+        {t('adminContent.editPage.publishHelp')}
       </span>
     </div>
   </form>
@@ -279,6 +306,9 @@ const tools = [
   const editor = form?.querySelector<HTMLTextAreaElement>('[data-editor]');
   const preview = form?.querySelector<HTMLElement>('[data-preview]');
   if (form && editor && preview) {
+    // Translated strings, rendered server-side into data-msg-* on the form.
+    const msg = form.dataset;
+
     /** Replace the selection, then restore a sensible cursor/selection. */
     const replaceSelection = (text: string, selectFrom: number, selectTo: number) => {
       const { selectionStart: start, selectionEnd: end } = editor;
@@ -306,7 +336,7 @@ const tools = [
         const body = (text || '').split('\n').map((line) => `${value}${line}`).join('\n');
         replaceSelection(body, 0, body.length);
       } else if (kind === 'link') {
-        const label = text || 'link text';
+        const label = text || msg.msgLinkText || '';
         const md = `[${label}](https://)`;
         // Put the caret in the URL, which is the part that still needs typing.
         replaceSelection(md, md.length - 1, md.length - 1);
@@ -318,7 +348,7 @@ const tools = [
     // and the filename is rarely a good description.
     document.addEventListener('media:selected', (event) => {
       const detail = (event as CustomEvent).detail as { imageKey: string; url: string };
-      const raw = window.prompt('Describe this image for screen readers:', '') ?? '';
+      const raw = window.prompt(msg.msgAltPrompt ?? '', '') ?? '';
       // Escape \ [ and ]. A lone ] closes the alt span early; a lone [ opens a
       // link, so "Photo of [blue shirt" turns the rest into a link instead of
       // an image. The backslash has to be escaped too or it eats the next char.
@@ -362,7 +392,7 @@ const tools = [
       inFlight?.abort();
       const controller = new AbortController();
       inFlight = controller;
-      if (status) status.textContent = 'Rendering…';
+      if (status) status.textContent = msg.msgRendering ?? '';
 
       const body = new FormData();
       body.append('body_markdown', markdown);
@@ -375,7 +405,9 @@ const tools = [
           body,
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+        if (!res.ok) {
+          throw new Error((msg.msgPreviewFailedStatus ?? '').replace('{status}', String(res.status)));
+        }
         // Server-rendered by the same renderer the storefront uses, with raw
         // HTML disabled, so this is the storefront's own escaped output.
         preview.innerHTML = await res.text();
@@ -384,7 +416,7 @@ const tools = [
       } catch (err) {
         if (controller.signal.aborted) return; // superseded, not a failure
         if (status) status.textContent = '';
-        preview.textContent = err instanceof Error ? err.message : 'Preview failed.';
+        preview.textContent = err instanceof Error ? err.message : (msg.msgPreviewFailed ?? '');
       } finally {
         if (inFlight === controller) inFlight = null;
       }

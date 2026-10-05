@@ -17,7 +17,12 @@ const money = (cents: number, currency: string): string =>
   toMajorUnits(cents, currency).toFixed(currencyDecimals(currency));
 
 // GET /admin/orders/export.csv — download all orders as CSV.
-export const GET: APIRoute = async ({ url }) => {
+//
+// The header row is a human label row, so it follows the admin language. The
+// cells stay machine values (ISO-ish timestamps, status codes, plain decimals),
+// so a spreadsheet or bookkeeping import reads them the same in every language.
+export const GET: APIRoute = async ({ url, locals }) => {
+  const { t } = locals.i18n;
   // Parsed with the same helpers the list page uses, so "Export these" returns
   // exactly the rows the merchant was looking at.
   const filter = orderFilterClause(parseOrderFilters(url.searchParams));
@@ -25,14 +30,28 @@ export const GET: APIRoute = async ({ url }) => {
   const onCfg = getConfig().orderNumber;
 
   const header = [
-    'Order', 'Date', 'Email', 'Status', 'Fulfillment',
-    'Subtotal', 'Shipping', 'Discount', 'Tax', 'Total', 'Currency',
+    t('adminOrders.export.order'),
+    t('adminOrders.export.date'),
+    t('adminOrders.export.email'),
+    t('adminOrders.export.status'),
+    t('adminOrders.export.fulfillment'),
+    t('adminOrders.export.subtotal'),
+    t('adminOrders.export.shipping'),
+    t('adminOrders.export.discount'),
+    t('adminOrders.export.tax'),
+    t('adminOrders.export.total'),
+    t('adminOrders.export.currency'),
     // Both refund components, so a bookkeeper can tell money the provider sent
     // back from money the merchant returned by hand. Net is what actually
     // stayed, and is the figure the dashboard's revenue agrees with.
-    'Provider refunded', 'Externally refunded', 'Total refunded', 'Net',
-    'Refund state', 'Refund review',
-    'Carrier', 'Tracking',
+    t('adminOrders.export.providerRefunded'),
+    t('adminOrders.export.externallyRefunded'),
+    t('adminOrders.export.totalRefunded'),
+    t('adminOrders.export.net'),
+    t('adminOrders.export.refundState'),
+    t('adminOrders.export.refundReview'),
+    t('adminOrders.export.carrier'),
+    t('adminOrders.export.tracking'),
   ];
   const rows = orders.map((o) => [
     orderReference(o.public_id, o.id, onCfg),

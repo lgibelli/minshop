@@ -15,6 +15,7 @@ import {
   MENU_CAPS,
   type MenuTargetType,
 } from '../../../features/navigation/db';
+import { targetTypeLabel } from '../../../features/navigation/admin';
 import { getPageByPublicId } from '../../../features/pages/db';
 import { getProductByPublicId } from '../../../features/products/db';
 import { getCategoryByPublicId } from '../../../features/categories/db';
@@ -24,12 +25,6 @@ import { purgeCacheTags } from '../../../features/cache/purge';
 
 export const prerender = false;
 
-const FAILURE_MESSAGES = {
-  full: (location: string) =>
-    `The ${location} menu is full (${MENU_CAPS[location as 'header' | 'footer']} items). Remove one first.`,
-  duplicate: (location: string, what: string) => `${what} is already in the ${location} menu.`,
-  unavailable: () => 'That page, product, or category is no longer available.',
-};
 
 /**
  * Resolve a submitted target public ID (page_/prod_/cat_) to the internal row
@@ -62,7 +57,9 @@ async function resolveTargetId(
 //   _action=reorder → set the whole order of one menu (drag-and-drop)
 //   _action=remove  → delete an item
 //   _action=label   → set or clear the label override
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+  const { i18n } = locals;
+  const { t } = i18n;
   const form = await request.formData();
   const action = String(form.get('_action'));
 
@@ -119,8 +116,12 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   if (action === 'add') {
     const location = form.get('location');
     const targetType = form.get('target_type');
-    if (!isMenuLocation(location)) return new Response('Invalid location', { status: 400 });
-    if (!isMenuTargetType(targetType)) return new Response('Invalid target type', { status: 400 });
+    if (!isMenuLocation(location)) {
+      return new Response(t('adminContent.navigation.invalidLocation'), { status: 400 });
+    }
+    if (!isMenuTargetType(targetType)) {
+      return new Response(t('adminContent.navigation.invalidTargetType'), { status: 400 });
+    }
 
     // Singletons carry no target; the rest submit a public ID that must resolve.
     let targetId: number | null = null;
@@ -131,7 +132,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       // direct API caller does not have to know that detail.
       const raw = form.get(`target_id_${targetType}`) ?? form.get('target_id');
       targetId = await resolveTargetId(targetType, raw);
-      if (targetId === null) return back('Choose a target first.');
+      if (targetId === null) return back(t('adminContent.navigation.chooseTarget'));
     }
 
     const result = await addMenuItem(env.DB, {
@@ -142,13 +143,21 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     });
     if (result.ok) return saved();
 
-    const what = targetType === 'home' ? 'Home' : 'Catalog';
+    const item = targetTypeLabel(targetType === 'home' ? 'home' : 'catalog', i18n);
+    const header = location === 'header';
     return back(
       result.reason === 'full'
-        ? FAILURE_MESSAGES.full(location)
+        ? t(header ? 'adminContent.navigation.headerFull' : 'adminContent.navigation.footerFull', {
+            max: MENU_CAPS[location],
+          })
         : result.reason === 'duplicate'
-          ? FAILURE_MESSAGES.duplicate(location, what)
-          : FAILURE_MESSAGES.unavailable(),
+          ? t(
+              header
+                ? 'adminContent.navigation.duplicateInHeader'
+                : 'adminContent.navigation.duplicateInFooter',
+              { item },
+            )
+          : t('adminContent.navigation.targetUnavailable'),
     );
   }
 
@@ -157,7 +166,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   // a tampered payload) simply drop out and fail the permutation check below.
   if (action === 'reorder') {
     const location = form.get('location');
-    if (!isMenuLocation(location)) return new Response('Invalid location', { status: 400 });
+    if (!isMenuLocation(location)) {
+      return new Response(t('adminContent.navigation.invalidLocation'), { status: 400 });
+    }
     const byPublicId = await menuItemIdsByPublicId(env.DB, location);
     const ids = form
       .getAll('order')
@@ -170,14 +181,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     // position. The client reloads on a non-OK response, so the merchant sees
     // the real order rather than an optimistic one.
     const applied = await reorderMenuItems(env.DB, location, ids);
-    if (!applied) return back('That reorder did not match the menu. Reloading.');
+    if (!applied) return back(t('adminContent.navigation.reorderMismatch'));
     return saved();
   }
 
   // Row actions address the item by its nav_ public ID.
   const itemPublicId = parsePublicId(form.get('id'), 'navItem');
   const id = itemPublicId ? await getMenuItemIdByPublicId(env.DB, itemPublicId) : null;
-  if (id === null) return new Response('Invalid id', { status: 400 });
+  if (id === null) return new Response(t('adminContent.navigation.invalidId'), { status: 400 });
 
   if (action === 'move') {
     await moveMenuItem(env.DB, id, form.get('direction') === 'up' ? 'up' : 'down');
@@ -194,5 +205,5 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     return saved();
   }
 
-  return back('Unknown action.');
+  return back(t('adminContent.navigation.unknownAction'));
 };

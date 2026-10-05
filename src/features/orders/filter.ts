@@ -7,6 +7,8 @@
 // purpose. Filtering one but not the other is the classic pagination bug — the
 // table shows 3 rows while the pager offers 12 pages of them.
 
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core';
+
 export interface OrderFilters {
   status: OrderStatusFilter | null;
   fulfillment: 'fulfilled' | 'unfulfilled' | null;
@@ -33,19 +35,37 @@ const STATUS: Record<OrderStatusFilter, string> = {
   pending: "status = 'pending'",
 };
 
-export const ORDER_STATUS_OPTIONS: { value: OrderStatusFilter; label: string }[] = [
-  { value: 'paid', label: 'Paid' },
-  { value: 'partially_refunded', label: 'Partially refunded' },
-  { value: 'refunded', label: 'Refunded' },
-  { value: 'pending', label: 'Unpaid' },
-];
+const STATUS_LABELS: Record<OrderStatusFilter, MessageKey> = {
+  paid: 'adminOrders.filter.statusPaid',
+  partially_refunded: 'adminOrders.filter.statusPartiallyRefunded',
+  refunded: 'adminOrders.filter.statusRefunded',
+  pending: 'adminOrders.filter.statusPending',
+};
 
-export const ORDER_METHOD_OPTIONS: { value: string; label: string }[] = [
-  { value: 'stripe', label: 'Card (Stripe)' },
-  { value: 'lightning', label: 'Lightning' },
-  { value: 'opennode', label: 'Bitcoin (OpenNode)' },
-  { value: 'demo', label: 'Demo' },
-];
+/** Payment-state filter options, labelled in the caller's language. */
+export function orderStatusOptions(
+  i18n: I18n = enI18n,
+): { value: OrderStatusFilter; label: string }[] {
+  return (Object.keys(STATUS_LABELS) as OrderStatusFilter[]).map((value) => ({
+    value,
+    label: i18n.t(STATUS_LABELS[value]),
+  }));
+}
+
+/** Payment rails the method filter accepts. Lightning is a brand name, never translated. */
+const METHOD_LABELS: Record<string, MessageKey | null> = {
+  stripe: 'adminOrders.filter.methodStripe',
+  lightning: null,
+  opennode: 'adminOrders.filter.methodOpennode',
+  demo: 'adminOrders.filter.methodDemo',
+};
+
+export function orderMethodOptions(i18n: I18n = enI18n): { value: string; label: string }[] {
+  return Object.entries(METHOD_LABELS).map(([value, key]) => ({
+    value,
+    label: key ? i18n.t(key) : 'Lightning',
+  }));
+}
 
 const isStatus = (v: string | null): v is OrderStatusFilter =>
   v !== null && Object.prototype.hasOwnProperty.call(STATUS, v);
@@ -58,7 +78,7 @@ export function parseOrderFilters(params: URLSearchParams): OrderFilters {
     status: isStatus(status) ? status : null,
     fulfillment:
       fulfillment === 'fulfilled' || fulfillment === 'unfulfilled' ? fulfillment : null,
-    method: ORDER_METHOD_OPTIONS.some((o) => o.value === method) ? method : null,
+    method: method !== null && Object.hasOwn(METHOD_LABELS, method) ? method : null,
     review: params.get('review') === '1',
   };
 }

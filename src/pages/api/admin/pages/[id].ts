@@ -13,10 +13,11 @@ export const prerender = false;
 
 // POST /api/admin/pages/:id — save, or delete when `_action=delete`.
 // :id is the page_ public ID; numeric row ids are not accepted.
-export const POST: APIRoute = async ({ request, params, redirect }) => {
+export const POST: APIRoute = async ({ request, params, redirect, locals }) => {
+  const { i18n } = locals;
   const publicId = parsePublicId(params.id, 'page');
   const existing = publicId ? await getPageByPublicId(env.DB, publicId) : null;
-  if (!existing) return new Response('Not found', { status: 404 });
+  if (!existing) return new Response(i18n.t('adminContent.errors.notFound'), { status: 404 });
   const id = existing.id;
 
   const form = await request.formData();
@@ -30,7 +31,7 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
 
   const back = (query: string) => redirect(`/admin/pages/${publicId}/edit${query}`, 303);
 
-  const parsed = parsePageForm(form);
+  const parsed = parsePageForm(form, i18n);
   if ('error' in parsed) return back(`?error=${encodeURIComponent(parsed.error)}`);
 
   // Keep the slug stable on rename: the form pre-fills the current slug.
@@ -45,6 +46,6 @@ export const POST: APIRoute = async ({ request, params, redirect }) => {
   );
 
   await purgeCacheTags([CACHE_TAG.shell]);
-  const warning = saveWarning(result);
+  const warning = saveWarning(result, i18n);
   return back(warning ? `?warning=${encodeURIComponent(warning)}` : '?saved=1');
 };

@@ -3,6 +3,7 @@ import { formatPrice, formatDate } from '../../config';
 import type { Order } from '../orders/db';
 import { listRefunds, reversedRefundIds, refundableCents } from './db';
 import { env } from 'cloudflare:workers';
+import type { MessageKey } from '../../i18n';
 
 interface Props {
   order: Order;
@@ -10,6 +11,9 @@ interface Props {
 }
 
 const { order, timeZone } = Astro.props;
+const { t, th, intl } = Astro.locals.i18n;
+// Messages land inside single-quoted JS strings in inline confirm() handlers.
+const jsQuote = (s: string) => s.replace(/[\\']/g, '\\$&');
 
 const history = await listRefunds(env.DB, order.id);
 const reversed = reversedRefundIds(history);
@@ -37,28 +41,31 @@ const state =
       : 'partial';
 
 const reviewOpen = order.refund_review_reason !== null && order.refund_reviewed_at === null;
-const REVIEW_COPY: Record<string, string> = {
-  currency_mismatch:
-    'A refund arrived in a different currency than this order was charged in. The totals were left untouched.',
-  exceeds_order_total:
-    'The provider’s refund total plus what was recorded here is more than the order total.',
+// Review reasons and ledger kinds are stored codes; unknown ones show as-is.
+const REVIEW_COPY: Record<string, MessageKey> = {
+  currency_mismatch: 'adminOrders.refunds.reviewCurrencyMismatch',
+  exceeds_order_total: 'adminOrders.refunds.reviewExceedsTotal',
 };
+const reviewCopy = (reason: string) =>
+  Object.hasOwn(REVIEW_COPY, reason) ? t(REVIEW_COPY[reason]) : reason;
 
-const KIND_LABEL: Record<string, string> = {
-  provider_api: 'Refunded through provider',
-  provider_sync: 'Synced from provider',
-  manual_external: 'Recorded by hand',
-  manual_reversal: 'Correction',
-  demo: 'Demo adjustment',
-  legacy: 'Recorded before refund history',
+const KIND_LABEL: Record<string, MessageKey> = {
+  provider_api: 'adminOrders.refunds.kindProviderApi',
+  provider_sync: 'adminOrders.refunds.kindProviderSync',
+  manual_external: 'adminOrders.refunds.kindManualExternal',
+  manual_reversal: 'adminOrders.refunds.kindManualReversal',
+  demo: 'adminOrders.refunds.kindDemo',
+  legacy: 'adminOrders.refunds.kindLegacy',
 };
+const kindLabel = (kind: string) => (Object.hasOwn(KIND_LABEL, kind) ? t(KIND_LABEL[kind]) : kind);
+const remainingLabel = formatPrice(remaining, order.currency, intl);
 
 const dollars = (cents: number) => (cents / 100).toFixed(2);
 ---
 
 <section class="mb-8 rounded-lg border border-line">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-    <h2 class="font-serif text-lg tracking-tight">Refunds</h2>
+    <h2 class="font-serif text-lg tracking-tight">{t('adminOrders.refunds.title')}</h2>
     {
       state !== 'none' && (
         <span
@@ -69,7 +76,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
               : 'bg-amber-50 text-amber-800 ring-amber-200',
           ]}
         >
-          {state === 'full' ? 'Refunded' : 'Partially refunded'}
+          {state === 'full' ? t('adminOrders.refunds.stateFull') : t('adminOrders.refunds.statePartial')}
         </span>
       )
     }
@@ -79,8 +86,8 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
     reviewOpen && (
       <div class="border-b border-line bg-amber-50 px-5 py-4">
         <p class="text-sm text-amber-900">
-          <strong>Needs review.</strong>{' '}
-          {REVIEW_COPY[order.refund_review_reason!] ?? order.refund_review_reason}
+          <strong>{t('adminOrders.refunds.needsReview')}</strong>{' '}
+          {reviewCopy(order.refund_review_reason!)}
         </p>
         <form method="POST" action={`/api/admin/orders/${order.public_id}`} class="mt-3">
           <input type="hidden" name="_action" value="review_refund" />
@@ -88,7 +95,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
             type="submit"
             class="rounded-md border border-amber-300 bg-surface px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-amber-900 hover:bg-amber-100"
           >
-            Mark reviewed
+            {t('adminOrders.refunds.markReviewed')}
           </button>
         </form>
       </div>
@@ -97,15 +104,15 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
 
   <dl class="grid grid-cols-2 gap-x-8 gap-y-3 px-5 py-4 text-sm sm:grid-cols-3">
     <div>
-      <dt class="text-xs uppercase tracking-widest text-faint">Order total</dt>
-      <dd class="tabular-nums">{formatPrice(order.amount_total_cents, order.currency)}</dd>
+      <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.orderTotal')}</dt>
+      <dd class="tabular-nums">{formatPrice(order.amount_total_cents, order.currency, intl)}</dd>
     </div>
     {
       order.provider_refunded_cents > 0 && (
         <div>
-          <dt class="text-xs uppercase tracking-widest text-faint">Through provider</dt>
+          <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.throughProvider')}</dt>
           <dd class="tabular-nums">
-            {formatPrice(order.provider_refunded_cents, order.currency)}
+            {formatPrice(order.provider_refunded_cents, order.currency, intl)}
           </dd>
         </div>
       )
@@ -113,25 +120,25 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
     {
       order.external_refunded_cents > 0 && (
         <div>
-          <dt class="text-xs uppercase tracking-widest text-faint">Recorded by hand</dt>
+          <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.recordedByHand')}</dt>
           <dd class="tabular-nums">
-            {formatPrice(order.external_refunded_cents, order.currency)}
+            {formatPrice(order.external_refunded_cents, order.currency, intl)}
           </dd>
         </div>
       )
     }
     <div>
-      <dt class="text-xs uppercase tracking-widest text-faint">Total refunded</dt>
-      <dd class="font-medium tabular-nums">{formatPrice(order.refunded_cents, order.currency)}</dd>
+      <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.totalRefunded')}</dt>
+      <dd class="font-medium tabular-nums">{formatPrice(order.refunded_cents, order.currency, intl)}</dd>
     </div>
     <div>
-      <dt class="text-xs uppercase tracking-widest text-faint">Refundable left</dt>
-      <dd class="tabular-nums">{formatPrice(remaining, order.currency)}</dd>
+      <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.refundableLeft')}</dt>
+      <dd class="tabular-nums">{remainingLabel}</dd>
     </div>
     <div>
-      <dt class="text-xs uppercase tracking-widest text-faint">Net</dt>
+      <dt class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.net')}</dt>
       <dd class="font-medium tabular-nums">
-        {formatPrice(order.amount_total_cents - order.refunded_cents, order.currency)}
+        {formatPrice(order.amount_total_cents - order.refunded_cents, order.currency, intl)}
       </dd>
     </div>
   </dl>
@@ -149,18 +156,18 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
               ]}
             >
               {r.amount_cents < 0 ? '−' : ''}
-              {formatPrice(Math.abs(r.amount_cents), order.currency)}
+              {formatPrice(Math.abs(r.amount_cents), order.currency, intl)}
             </span>
             <span class="text-xs uppercase tracking-widest text-faint">
-              {KIND_LABEL[r.kind] ?? r.kind}
+              {kindLabel(r.kind)}
             </span>
-            <span class="text-xs text-muted">{formatDate(r.created_at, undefined, timeZone)}</span>
+            <span class="text-xs text-muted">{formatDate(r.created_at, undefined, timeZone, intl)}</span>
             {r.created_by && <span class="text-xs text-muted">{r.created_by}</span>}
             {r.provider_refund_id && (
               <span class="font-mono text-xs text-faint">{r.provider_refund_id}</span>
             )}
             {reversed.has(r.id) && (
-              <span class="text-xs uppercase tracking-widest text-faint">Voided</span>
+              <span class="text-xs uppercase tracking-widest text-faint">{t('adminOrders.refunds.voided')}</span>
             )}
             <span class="w-full text-xs text-muted">
               {[r.reason, r.note].filter(Boolean).join(' — ')}
@@ -174,7 +181,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
                 <form
                   method="POST"
                   action={`/api/admin/orders/${order.public_id}`}
-                  onsubmit="return confirm('Void this recorded refund? This corrects minshop’s records only and moves no money.')"
+                  onsubmit={`return confirm('${jsQuote(t('adminOrders.refunds.voidConfirm'))}')`}
                 >
                   <input type="hidden" name="_action" value="void_refund" />
                   <input type="hidden" name="refund_id" value={r.public_id} />
@@ -182,7 +189,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
                     type="submit"
                     class="text-xs uppercase tracking-widest text-faint hover:text-red-600"
                   >
-                    Void
+                    {t('adminOrders.refunds.void')}
                   </button>
                 </form>
               )}
@@ -201,7 +208,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
           <form
             method="POST"
             action={`/api/admin/orders/${order.public_id}`}
-            onsubmit={`return confirm('Refund ${formatPrice(remaining, order.currency)} through the payment provider? This sends money back to the customer.')`}
+            onsubmit={`return confirm('${jsQuote(t('adminOrders.refunds.refundConfirm', { amount: remainingLabel }))}')`}
           >
             <input type="hidden" name="_action" value="refund" />
             {/* `remaining`, not the order total: the provider refunds only what
@@ -211,11 +218,10 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
               type="submit"
               class="rounded-md bg-red-600 px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-red-700"
             >
-              Refund {formatPrice(remaining, order.currency)} through provider
+              {t('adminOrders.refunds.refundButton', { amount: remainingLabel })}
             </button>
             <p class="mt-2 text-xs text-muted">
-              Sends the money back. For a partial refund, use your provider’s dashboard — it
-              syncs back here automatically.
+              {t('adminOrders.refunds.refundHelp')}
             </p>
           </form>
         )}
@@ -224,7 +230,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
           <form method="POST" action={`/api/admin/orders/${order.public_id}`} class="space-y-2">
             <input type="hidden" name="_action" value="record_refund" />
             <p class="text-xs uppercase tracking-widest text-faint">
-              {isDemo ? 'Mark demo order refunded' : 'Record a refund you already sent'}
+              {isDemo ? t('adminOrders.refunds.recordDemoTitle') : t('adminOrders.refunds.recordTitle')}
             </p>
             <div class="flex flex-wrap items-center gap-2">
               <input
@@ -235,27 +241,27 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
                 max={dollars(remaining)}
                 value={dollars(remaining)}
                 required
-                aria-label="Refund amount"
+                aria-label={t('adminOrders.refunds.amountLabel')}
                 class="w-28 rounded-md border border-line px-2 py-1.5 text-sm tabular-nums"
               />
               <input
                 type="text"
                 name="note"
-                placeholder="How it was sent (internal)"
-                aria-label="Internal note"
+                placeholder={t('adminOrders.refunds.notePlaceholder')}
+                aria-label={t('adminOrders.refunds.noteLabel')}
                 class="min-w-48 flex-1 rounded-md border border-line px-2 py-1.5 text-sm"
               />
               <button
                 type="submit"
                 class="rounded-md border border-line px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted hover:border-brand"
               >
-                {isDemo ? 'Mark refunded' : 'Record refund'}
+                {isDemo ? t('adminOrders.refunds.markRefunded') : t('adminOrders.refunds.recordRefund')}
               </button>
             </div>
             <p class="text-xs text-muted">
               {isDemo
-                ? 'This only updates the demo order and store statistics. No money was charged or returned.'
-                : 'This only updates minshop’s records and moves no money. Send the refund from your wallet or provider first.'}
+                ? t('adminOrders.refunds.recordDemoHelp')
+                : t('adminOrders.refunds.recordHelp')}
             </p>
           </form>
         )}
@@ -264,7 +270,7 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
           <form method="POST" action={`/api/admin/orders/${order.public_id}`} class="space-y-2">
             <input type="hidden" name="_action" value="sync_refund" />
             <p class="text-xs uppercase tracking-widest text-faint">
-              Sync a refund from your provider
+              {t('adminOrders.refunds.syncTitle')}
             </p>
             <div class="flex flex-wrap items-center gap-2">
               <input
@@ -274,27 +280,26 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
                 min="0"
                 max={dollars(order.amount_total_cents)}
                 required
-                aria-label="Total refunded at the provider"
+                aria-label={t('adminOrders.refunds.syncAmountLabel')}
                 placeholder={dollars(order.amount_total_cents)}
                 class="w-28 rounded-md border border-line px-2 py-1.5 text-sm tabular-nums"
               />
               <input
                 type="text"
                 name="provider_refund_id"
-                placeholder="Provider refund ID (optional)"
-                aria-label="Provider refund ID"
+                placeholder={t('adminOrders.refunds.providerRefundIdPlaceholder')}
+                aria-label={t('adminOrders.refunds.providerRefundIdLabel')}
                 class="min-w-48 flex-1 rounded-md border border-line px-2 py-1.5 text-sm"
               />
               <button
                 type="submit"
                 class="rounded-md border border-line px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted hover:border-brand"
               >
-                Sync total
+                {t('adminOrders.refunds.syncTotal')}
               </button>
             </div>
             <p class="text-xs text-muted">
-              Use this only if a refund you made at the provider never appeared here. Enter the
-              <strong> total refunded so far</strong>, not just the latest amount.
+              <Fragment set:html={th('adminOrders.refunds.syncHelp')} />
             </p>
           </form>
         )}

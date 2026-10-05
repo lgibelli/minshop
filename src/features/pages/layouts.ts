@@ -2,7 +2,9 @@
  * Page layout presets — THE single source of truth.
  *
  * ── Adding a preset ──────────────────────────────────────────────────────────
- * Add one entry below. That is the whole change:
+ * Add one entry below, plus its label and hint messages in
+ * src/i18n/messages/en/adminContent.ts (a missing message is a type error).
+ * That is the whole change:
  *   • the editor's Layout dropdown is generated from this object
  *   • validation accepts it automatically (the union is derived from the keys)
  *   • the storefront and the admin preview both apply it
@@ -19,11 +21,13 @@
  * keeps a merchant from building a centred title over a full-width data table.
  */
 
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core.ts';
+
 export interface PageLayoutPreset {
-  /** Shown in the editor dropdown. */
-  label: string;
-  /** One-line guidance under the dropdown. */
-  hint: string;
+  /** Message key for the editor dropdown label. */
+  label: MessageKey;
+  /** Message key for the one-line guidance under the dropdown. */
+  hint: MessageKey;
   /** CSS length for the content column. */
   measure: string;
   /** Title alignment for the page's <h1>. */
@@ -32,20 +36,20 @@ export interface PageLayoutPreset {
 
 export const PAGE_LAYOUTS = {
   standard: {
-    label: 'Standard',
-    hint: 'Narrow column, left-aligned title. Best for policies, shipping, and returns.',
+    label: 'adminContent.layout.standard',
+    hint: 'adminContent.layout.standardHint',
     measure: '48rem',
     titleAlign: 'left',
   },
   editorial: {
-    label: 'Editorial',
-    hint: 'Narrow column, centred title. Best for About and brand-story pages.',
+    label: 'adminContent.layout.editorial',
+    hint: 'adminContent.layout.editorialHint',
     measure: '48rem',
     titleAlign: 'center',
   },
   wide: {
-    label: 'Wide',
-    hint: 'Full width, left-aligned title. Best for size charts, tables, and image grids.',
+    label: 'adminContent.layout.wide',
+    hint: 'adminContent.layout.wideHint',
     measure: '72rem',
     titleAlign: 'left',
   },
@@ -58,11 +62,25 @@ export const DEFAULT_PAGE_LAYOUT: PageLayout = 'standard';
 
 export const PAGE_LAYOUT_KEYS = Object.keys(PAGE_LAYOUTS) as PageLayout[];
 
-/** Editor dropdown data — generated, so a new preset needs no form change. */
+/**
+ * Editor dropdown data — generated, so a new preset needs no form change. Label
+ * and hint are message keys here; render through pageLayoutOptions().
+ */
 export const PAGE_LAYOUT_OPTIONS = PAGE_LAYOUT_KEYS.map((key) => ({
   key,
   ...PAGE_LAYOUTS[key],
 }));
+
+/** The dropdown options with label and hint in the caller's language. */
+export function pageLayoutOptions(
+  i18n: I18n = enI18n,
+): { key: PageLayout; label: string; hint: string }[] {
+  return PAGE_LAYOUT_OPTIONS.map((option) => ({
+    key: option.key,
+    label: i18n.t(option.label),
+    hint: i18n.t(option.hint),
+  }));
+}
 
 /**
  * Coerce stored/submitted values to a known preset. Unknown values fall back to
