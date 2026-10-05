@@ -161,6 +161,7 @@ export async function loadCatalogPage(
         baseUrl: options.imageBaseUrl,
         delivery: options.delivery,
         currency: options.currency,
+        intl: options.i18n?.intl,
         sizes: CARD_SIZES,
         // Only the first card is the page's likely LCP image.
         priority: index === 0,

@@ -56,6 +56,7 @@ addCacheTags(
 const cardOptions = {
   baseUrl: getConfig().images.baseUrl,
   currency: getConfig().currency,
+  intl: Astro.locals.i18n.intl,
   delivery: Astro.locals.settings?.imageDelivery,
   sizes: '(min-width: 1024px) 352px, calc(50vw - 36px)',
 };
