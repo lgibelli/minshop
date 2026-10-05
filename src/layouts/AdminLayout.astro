@@ -4,6 +4,7 @@ import { paymentsInDemoMode } from '../features/payments';
 import { shippingFor } from '../features/shipping/effective';
 import { env } from 'cloudflare:workers';
 import { countUnresolvedInventoryExceptions } from '../features/orders/db';
+import { LOCALES } from '../i18n/core';
 // Admin's OWN stylesheet — never global.css, which carries the active
 // storefront set's tokens and base-layer rules. A dark set would otherwise
 // restyle every authenticated Admin page (see src/styles/admin.css).
@@ -27,6 +28,7 @@ interface Props {
 }
 
 const { title, active } = Astro.props;
+const { t, locale } = Astro.locals.i18n;
 const config = getConfig();
 const storeName = Astro.locals.settings?.storeName ?? config.storeName;
 // Nudge to finish first-run setup — except while on the wizard itself.
@@ -61,7 +63,7 @@ const currentLabel = nav.find((n) => n.key === active)?.label ?? 'Menu';
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -138,6 +140,31 @@ const currentLabel = nav.find((n) => n.key === active)?.label ?? 'Menu';
           <a href="/" class="hover:text-brand">&larr; View store</a>
           {showLogout && <a href="/admin/logout" class="hover:text-brand">Log out</a>}
         </div>
+
+        {/* Per-browser admin language: one submit button per bundled locale, so it
+            works without JS. The store's own language is set in store.config.ts. */}
+        <form
+          method="post"
+          action="/api/admin/locale"
+          class="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400"
+          aria-label={t('admin.language')}
+        >
+          <input type="hidden" name="next" value={Astro.url.pathname + Astro.url.search} />
+          {
+            Object.entries(LOCALES).map(([code, info]) => (
+              <button
+                type="submit"
+                name="locale"
+                value={code}
+                lang={code}
+                aria-current={code === locale ? 'true' : undefined}
+                class:list={['hover:text-brand', code === locale && 'font-semibold text-ink']}
+              >
+                {info.label}
+              </button>
+            ))
+          }
+        </form>
       </aside>
 
       <main class="min-w-0 flex-1">

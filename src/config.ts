@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { storeOverrides } from './store.config';
 import type { ShippingConfig } from './features/shipping/calculator';
+import { LOCALES, resolveLocale } from './i18n/core';
 
 /**
  * Site-wide settings SCHEMA + DEFAULTS. This file is upstream-owned: to change
@@ -17,6 +18,18 @@ import type { ShippingConfig } from './features/shipping/calculator';
 export interface SiteConfig {
   storeName: string;
   currency: string;
+  /**
+   * Language of the storefront, its APIs, and emails, and the locale prices and
+   * dates are formatted in: a code from LOCALES in src/i18n/core.ts ('en', 'pl',
+   * 'it'). Build-time and store-wide like currency, because catalog content is
+   * written in one language. Unknown codes fall back to English.
+   */
+  locale: string;
+  /**
+   * The admin's default language (falls back to `locale`). Each admin browser
+   * can switch it from the sidebar.
+   */
+  adminLocale?: string;
   /**
    * IANA time zone (e.g. 'America/Los_Angeles', 'Europe/London', 'UTC') used to
    * display stored timestamps in the admin. Dates are stored as UTC; this only
@@ -189,6 +202,7 @@ function defaultConfig(): SiteConfig {
   return {
     storeName: env.STORE_NAME ?? 'My Shop',
     currency: 'usd', // store-wide currency (ISO 4217, lowercase)
+    locale: 'en', // storefront + email language (src/i18n/core.ts LOCALES)
     timeZone: env.TIME_ZONE ?? 'UTC', // setup/admin settings can override this at runtime
     features: {
       accounts: false, // magic-link customer login; needs AUTH_SECRET + email
@@ -283,8 +297,17 @@ import { formatMoney } from './money';
 // Formatting itself lives in money.ts, which has no imports and so can be used
 // from pure code. This wrapper adds only the store-currency default, which is
 // the part that reads deployment vars.
-export function formatPrice(cents: number, currency: string = getConfig().currency): string {
-  return formatMoney(cents, currency);
+export function formatPrice(
+  cents: number,
+  currency: string = getConfig().currency,
+  intl: string = storeIntl(),
+): string {
+  return formatMoney(cents, currency, intl);
+}
+
+/** The Intl tag of the store locale (en-US, pl-PL, …): the default for formatting. */
+export function storeIntl(): string {
+  return LOCALES[resolveLocale(getConfig().locale)].intl;
 }
 
 /**
@@ -297,6 +320,7 @@ export function formatDate(
   value: string | null | undefined,
   opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' },
   timeZone: string = getConfig().timeZone,
+  intl: string = storeIntl(),
 ): string {
   if (!value) return '';
   // SQLite stores UTC without a zone marker; make it explicit so it isn't parsed
@@ -305,9 +329,9 @@ export function formatDate(
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return value;
   try {
-    return new Intl.DateTimeFormat('en-US', { timeZone, ...opts }).format(d);
+    return new Intl.DateTimeFormat(intl, { timeZone, ...opts }).format(d);
   } catch {
     // A bad deployment override should never break an order/admin page.
-    return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...opts }).format(d);
+    return new Intl.DateTimeFormat(intl, { timeZone: 'UTC', ...opts }).format(d);
   }
 }

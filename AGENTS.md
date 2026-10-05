@@ -173,6 +173,13 @@ To swap/add a provider, write one adapter file + wire the factory:
 
 ## Recipes — how to add X
 
+- **Any text a person reads:** add the English message to
+  `src/i18n/messages/en/<area>.ts` (keys are prefixed by the area) and render it
+  with `Astro.locals.i18n.t('area.key', params)`. Pure modules take an `I18n`
+  param defaulting to `enI18n`; emails use `storeI18n()`. Bundled translations
+  fall back to English per key, so a new string never breaks another locale.
+  See `src/i18n/README.md`.
+
 - **A product field:** new migration (`ALTER TABLE products ADD COLUMN …`) →
   update `Product`/`AdminProduct` + queries in `features/products/db.ts` → add to
   `ProductForm.astro` + `parseProductForm` in `features/products/form.ts`.
@@ -213,6 +220,11 @@ To swap/add a provider, write one adapter file + wire the factory:
 - **A search backend:** implement `SearchProvider` in `features/search/<name>.ts`;
   add a branch to `getSearchProvider()`. Semantic (`vector`) keeps the index in
   sync via `indexProduct`/`unindexProduct` called from the admin product routes.
+
+12. **No hard-coded UI text.** Every string a shopper or merchant reads goes
+    through the translator, and prices/dates through `formatPrice` /
+    `formatDate` (locale-aware). English output must stay byte-identical to the
+    catalog's English.
 
 ## Gotchas — preflight checklist
 

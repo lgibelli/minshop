@@ -32,6 +32,8 @@ interface ImagesBindingMin {
 type CloudflareRuntime = import('@astrojs/cloudflare').Runtime;
 declare namespace App {
   interface Locals extends CloudflareRuntime {
+    /** The request's translator, set first thing by src/middleware.ts. */
+    i18n: import('./i18n/core').I18n;
     adminEmail?: string;
     /** Runtime settings overlay (store name etc.), loaded once per request. */
     settings?: import('./features/settings/db').StoreSettings;

@@ -27,6 +27,7 @@ import {
 import { addCacheTags, responseCacheTags } from './features/cache/tags';
 import { normalizeSearchQuery } from './features/search/query';
 import { isForbiddenFormOrigin } from './features/auth/formOrigin';
+import { requestI18n } from './i18n';
 
 /**
  * Admin auth gate. Protects BOTH the admin UI (`/admin/*`) and the admin API
@@ -223,6 +224,9 @@ async function gate(context: APIContext, next: MiddlewareNext): Promise<Response
 
 async function route(context: APIContext, next: MiddlewareNext): Promise<Response> {
   const path = context.url.pathname;
+  // Every route renders through a translator: the admin language on admin paths,
+  // the store language everywhere else (see src/i18n/index.ts).
+  context.locals.i18n = requestI18n(path, context.cookies);
   const productError = path.startsWith('/products/') && context.url.searchParams.has('error');
 
   let response = isForbiddenFormOrigin(context.request, context.url)

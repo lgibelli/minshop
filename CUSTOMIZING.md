@@ -256,6 +256,14 @@ upstream, not a test to relax in your theme.
    in the model — open an issue rather than reaching around it.
 5. **Availability is a boolean.** Exact stock counts stay private.
 
+## Text and translations
+
+Theme files render their words through the translator, never as literal text:
+`const { t } = Astro.locals.i18n;` then `{t('storefront.addToCart')}`. The store
+language is `locale` in `src/store.config.ts`. To reword something for your
+store only, change the message in `src/i18n/messages/<locale>/storefront.ts`;
+new strings your theme needs go in the same file. See `src/i18n/README.md`.
+
 ## Styling
 
 Tokens live in your theme's `tokens.css` (`src/themes/<your-theme>/tokens.css`),
