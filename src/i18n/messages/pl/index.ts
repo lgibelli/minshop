@@ -7,6 +7,7 @@ import { account } from './account';
 import { email } from './email';
 import { admin } from './admin';
 import { adminProducts } from './adminProducts';
+import { catalog } from './catalog';
 import { adminOrders } from './adminOrders';
 import { adminContent } from './adminContent';
 import { adminSettings } from './adminSettings';
@@ -22,6 +23,7 @@ export const pl = {
   ...email,
   ...admin,
   ...adminProducts,
+  ...catalog,
   ...adminOrders,
   ...adminContent,
   ...adminSettings,
