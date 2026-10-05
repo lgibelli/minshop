@@ -7,6 +7,7 @@ import { getConfig } from '../../config';
 import { publicOrigin } from '../../features/http/origin';
 import { addCacheTags, productCacheTags } from '../../features/cache/tags';
 
+const { i18n } = Astro.locals;
 const loaded = await loadProductDetail(env.DB, {
   slug: Astro.params.slug,
   searchParams: Astro.url.searchParams,
@@ -21,7 +22,7 @@ const loaded = await loadProductDetail(env.DB, {
 // Status, metadata, JSON-LD, and cache tagging stay with the route: none of
 // them is a presentation decision, and all of them are easy to break silently.
 if (loaded.status === 'not_found') {
-  return new Response('Not found', { status: 404 });
+  return new Response(i18n.t('storefront.error.notFound'), { status: 404 });
 }
 
 const { model, purchase, seo } = loaded;
@@ -33,7 +34,7 @@ if (loaded.backfillRelated) {
 ---
 
 <Layout title={seo.title} description={seo.description ?? undefined} image={seo.imagePath}>
-  <ProductDetail model={model} purchase={purchase} />
+  <ProductDetail model={model} purchase={purchase} i18n={i18n} />
 
   <script is:inline type="application/ld+json" set:html={seo.jsonLd} />
 

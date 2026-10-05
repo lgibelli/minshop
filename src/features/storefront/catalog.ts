@@ -5,6 +5,7 @@ import { orderByClause, parseStoreSortQuery, STORE_SORTS } from '../products/sor
 import { MAX_PUBLIC_PAGE, paginate, queryHref } from '../../pagination';
 import { addCacheTags, productCacheTags } from '../cache/tags';
 import type { ImageDelivery } from '../products/image';
+import { enI18n, type I18n, type MessageKey } from '../../i18n/core';
 import { buildProductCard } from './productCard';
 import type {
   CatalogPageModel,
@@ -27,6 +28,19 @@ const PAGE_SIZE = 24;
 /** Matches the card slot in the default three-column grid. */
 const CARD_SIZES = '(min-width: 1024px) 352px, calc(50vw - 36px)';
 
+/** Translated labels for the storefront sorts, keyed by `sort`. */
+const SORT_LABELS: Record<string, MessageKey> = {
+  newest: 'storefront.catalog.sortNewest',
+  price: 'storefront.catalog.sortPrice',
+  name: 'storefront.catalog.sortName',
+};
+
+/** A sort added to STORE_SORTS without a message keeps its English label. */
+function sortLabel(option: { sort: string; label: string }, i18n: I18n): string {
+  const key = SORT_LABELS[option.sort];
+  return key ? i18n.t(key) : option.label;
+}
+
 /**
  * Sort links deliberately drop `page`: changing the ordering while holding page
  * 7 lands the shopper in the middle of a list they have not seen.
@@ -37,7 +51,12 @@ const CARD_SIZES = '(min-width: 1024px) 352px, calc(50vw - 36px)';
  * path renders the same list, which is a duplicate-URL question worth revisiting
  * separately rather than changing inside an extraction.
  */
-export function buildSortModel(base: string, sort: string, dir: 'asc' | 'desc'): StorefrontSortModel {
+export function buildSortModel(
+  base: string,
+  sort: string,
+  dir: 'asc' | 'desc',
+  i18n: I18n = enI18n,
+): StorefrontSortModel {
   return {
     options: STORE_SORTS.map((option) => {
       const current = sort === option.sort;
@@ -45,7 +64,7 @@ export function buildSortModel(base: string, sort: string, dir: 'asc' | 'desc'):
       // natural direction (price ascending, newest descending).
       const nextDir = current ? (dir === 'asc' ? 'desc' : 'asc') : option.dir;
       return {
-        label: option.label,
+        label: sortLabel(option, i18n),
         href: queryHref(base, { sort: option.sort, dir: nextDir }),
         current,
         direction: current ? dir : null,
@@ -115,6 +134,8 @@ export interface CatalogPageOptions {
   currency: string;
   eyebrow: string;
   heading: string;
+  /** The request's translator, for the sort labels. English when omitted. */
+  i18n?: I18n;
 }
 
 export async function loadCatalogPage(
@@ -158,7 +179,7 @@ export async function loadCatalogPage(
         priority: index === 0,
       }),
     ),
-    sort: buildSortModel(options.base, sort, dir),
+    sort: buildSortModel(options.base, sort, dir, options.i18n),
     pagination: buildPaginationModel(options.base, page, totalPages, sort, dir),
   };
 }

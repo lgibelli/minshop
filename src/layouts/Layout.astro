@@ -21,6 +21,8 @@ interface Props {
 }
 
 const { title, description, image, canonical: canonicalOverride } = Astro.props;
+const { i18n } = Astro.locals;
+const { t } = i18n;
 const config = getConfig();
 const { features } = config;
 // Runtime override (set by the setup wizard) wins over the build-time default.
@@ -56,13 +58,13 @@ const accountsOn =
 // escapes both values on render, so admin-entered text can't inject markup.
 const announcement = Astro.locals.settings?.announcement ?? '';
 const announcementHref = Astro.locals.settings?.announcementHref ?? '';
-const pageTitle = title ? `${title} — ${storeName}` : storeName;
+const pageTitle = title ? t('storefront.meta.title', { title, storeName }) : storeName;
 const query =
   Astro.url.pathname === '/search'
     ? normalizeSearchQuery(Astro.url.searchParams.get('q') ?? '')
     : '';
 
-const desc = (description ?? `Shop ${storeName}.`).slice(0, 160);
+const desc = (description ?? t('storefront.meta.description', { storeName })).slice(0, 160);
 const origin = publicOrigin(Astro.url.origin, env.CANONICAL_ORIGIN);
 const canonical = canonicalOverride ?? new URL(Astro.url.pathname, origin).href;
 const ogImage = image ? new URL(image, origin).href : undefined;
@@ -85,7 +87,7 @@ const shell = buildShellModel({
 ---
 
 <!doctype html>
-<html lang={Astro.locals.i18n.locale}>
+<html lang={i18n.locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -131,13 +133,13 @@ const shell = buildShellModel({
     </script>
   </head>
   <body class="flex min-h-screen flex-col bg-paper text-ink antialiased">
-    <StoreHeader model={shell} />
+    <StoreHeader model={shell} i18n={i18n} />
 
     <main class="page-shell">
       <slot />
     </main>
 
-    <StoreFooter model={shell} />
+    <StoreFooter model={shell} i18n={i18n} />
 
     {/* Slide-out cart drawer. Progressive enhancement: hidden + inert until JS
         opens it; the /cart page and plain form posts are the no-JS baseline. */}
@@ -146,7 +148,7 @@ const shell = buildShellModel({
       class="invisible pointer-events-none fixed inset-0 z-40"
       role="dialog"
       aria-modal="true"
-      aria-label="Cart"
+      aria-label={t('storefront.cartDrawer.label')}
     >
       <div data-cart-backdrop class="absolute inset-0 bg-black/30 opacity-0 transition-opacity duration-300"></div>
       <aside
@@ -154,7 +156,7 @@ const shell = buildShellModel({
         class="absolute right-0 top-0 flex h-full w-full max-w-md translate-x-full flex-col bg-paper shadow-xl transition-transform duration-300"
       >
         <div class="flex items-center justify-between border-b border-line px-6 py-5">
-          <h2 class="font-serif text-2xl tracking-tight">Your cart</h2>
+          <h2 class="font-serif text-2xl tracking-tight">{t('storefront.cartDrawer.title')}</h2>
           {/* 44px box, not a bare glyph: the hit area was only as big as the
               × itself, which is well under the 44×44 minimum for a touch target
               — and this is the primary way out of a full-height mobile drawer.
@@ -163,7 +165,7 @@ const shell = buildShellModel({
           <button
             type="button"
             data-cart-close
-            aria-label="Close cart"
+            aria-label={t('storefront.cartDrawer.close')}
             class="-mr-2 flex h-11 w-11 items-center justify-center rounded-md text-3xl leading-none text-faint transition-colors hover:bg-surface hover:text-brand"
           >
             &times;
