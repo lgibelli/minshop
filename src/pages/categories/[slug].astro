@@ -25,10 +25,12 @@ import { catalogPath } from '../../features/settings/home';
 import { addCacheTags, productCacheTags } from '../../features/cache/tags';
 
 const { slug } = Astro.params;
+const { i18n } = Astro.locals;
+const { t } = i18n;
 const category = slug ? await getCategoryBySlug(env.DB, slug) : null;
 
 if (!category) {
-  return new Response('Not found', { status: 404 });
+  return new Response(t('storefront.error.notFound'), { status: 404 });
 }
 
 const { sort, dir } = parseStoreSortQuery(
@@ -76,7 +78,7 @@ const shopHref = catalogPath(Astro.locals.settings?.homePage);
 
 <Layout title={category.name}>
   <nav class="mb-4 flex flex-wrap gap-x-2 text-xs uppercase tracking-widest text-faint">
-    <a href={shopHref} class="hover:text-brand">Shop</a>
+    <a href={shopHref} class="hover:text-brand">{t('storefront.nav.shop')}</a>
     {
       trail.map((c) => (
         <span class="flex gap-x-2">
@@ -106,14 +108,14 @@ const shopHref = catalogPath(Astro.locals.settings?.homePage);
     )
   }
 
-  <CatalogSort model={buildSortModel(base, sort, dir)} />
+  <CatalogSort model={buildSortModel(base, sort, dir, i18n)} i18n={i18n} />
 
-  {products.length === 0 && <p class="text-muted">No products in this category yet.</p>}
+  {products.length === 0 && <p class="text-muted">{t('storefront.category.empty')}</p>}
 
   <ul class="grid grid-cols-2 gap-x-6 gap-y-12 lg:grid-cols-3">
     {
       cards.map((card, i) => (
-        <ProductCard card={card} index={i} />
+        <ProductCard card={card} index={i} i18n={i18n} />
       ))
     }
   </ul>
