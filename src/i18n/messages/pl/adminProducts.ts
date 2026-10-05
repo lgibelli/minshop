@@ -1,3 +1,273 @@
 import type { Catalog } from '../../core';
 
-export const adminProducts = {} satisfies Catalog;
+export const adminProducts = {
+  // Product list (src/pages/admin/products/index.astro).
+  'adminProducts.list.title': 'Produkty',
+  'adminProducts.list.newProduct': 'Nowy produkt',
+  'adminProducts.list.searchPlaceholder': 'Nazwa produktu',
+  'adminProducts.list.visibility': 'Widoczność',
+  'adminProducts.list.allProducts': 'Wszystkie produkty',
+  'adminProducts.list.stock': 'Stan magazynowy',
+  'adminProducts.list.anyStock': 'Dowolny stan',
+  'adminProducts.list.matchCount': {
+    one: '{count} produkt',
+    few: '{count} produkty',
+    many: '{count} produktów',
+    other: '{count} produktu',
+  },
+  'adminProducts.list.colProduct': 'Produkt',
+  'adminProducts.list.colPrice': 'Cena',
+  'adminProducts.list.colStock': 'Stan',
+  'adminProducts.list.colSold': 'Sprzedano',
+  'adminProducts.list.colActive': 'Aktywny',
+  'adminProducts.list.colActions': 'Akcje',
+  'adminProducts.list.yes': 'Tak',
+  'adminProducts.list.no': 'Nie',
+  'adminProducts.list.view': 'Zobacz',
+  'adminProducts.list.edit': 'Edytuj',
+  'adminProducts.list.delete': 'Usuń',
+  'adminProducts.list.confirmDelete': 'Usunąć ten produkt?',
+  'adminProducts.list.confirmDeleteLinked':
+    'Ten produkt jest podlinkowany w nawigacji. Usunięcie go ukryje ten link w sklepie. Kontynuować?',
+  'adminProducts.list.noMatches': 'Żaden produkt nie pasuje do tych filtrów.',
+  'adminProducts.list.empty': 'Brak produktów.',
+
+  // List filters (src/features/products/filter.ts).
+  'adminProducts.filter.active': 'Aktywne',
+  'adminProducts.filter.hidden': 'Ukryte',
+  'adminProducts.filter.inStock': 'Dostępne',
+  'adminProducts.filter.lowStock': 'Niski stan (≤ {max})',
+  'adminProducts.filter.outOfStock': 'Wyprzedane',
+
+  // New product (src/pages/admin/products/new.astro).
+  'adminProducts.new.title': 'Nowy produkt',
+  'adminProducts.new.back': 'Wróć do produktów',
+  'adminProducts.new.submit': 'Utwórz produkt',
+
+  // Product form (src/features/products/ProductForm.astro).
+  'adminProducts.form.name': 'Nazwa',
+  'adminProducts.form.slug': 'Slug',
+  'adminProducts.form.slugHint': '(adres URL – zostaw puste, aby utworzyć z nazwy)',
+  'adminProducts.form.slugPlaceholder': 'automatycznie-z-nazwy',
+  'adminProducts.form.description': 'Opis',
+  'adminProducts.form.descriptionHelp':
+    'Zwykły tekst lub Markdown – akapity, listy, linki i multimedia z <code>/images/…</code> wyświetlają się na stronie produktu.',
+  'adminProducts.form.price': 'Cena ({currency})',
+  'adminProducts.form.stock': 'Stan magazynowy',
+  'adminProducts.form.shipping': 'Dostawa',
+  'adminProducts.form.requiresShipping': 'Wymaga wysyłki',
+  'adminProducts.form.requiresShippingHelp':
+    'Odznacz dla produktów cyfrowych (e-booki, karty podarunkowe). Nie wliczają się do wagi przesyłki i nigdy nie blokują zamówienia z powodu braku wagi.',
+  'adminProducts.form.weight': 'Waga ({unit})',
+  'adminProducts.form.weightHelpRequired':
+    'Waga zapakowanego produktu, bez wspólnego dodatku na opakowanie ustawianego w sekcji Dostawa. Wymagana: każda strefa dostawy wycenia według wagi, więc bez niej nie można sprzedać tego produktu.',
+  'adminProducts.form.weightHelpOptional':
+    'Waga zapakowanego produktu, bez wspólnego dodatku na opakowanie ustawianego w sekcji Dostawa. Opcjonalna, dopóki dostępna jest stała stawka.',
+  'adminProducts.form.digitalDelivery': 'Dostawa cyfrowa',
+  'adminProducts.form.attached': 'Załączono: <strong>{name}</strong>',
+  'adminProducts.form.attachedWithSize': 'Załączono: <strong>{name}</strong> ({size} KB)',
+  'adminProducts.form.defaultFileName': 'plik',
+  'adminProducts.form.replaceFile': 'Zastąp plik',
+  'adminProducts.form.attachFile': 'Załącz plik',
+  'adminProducts.form.deliverableHelp':
+    'Prywatny plik do pobrania po opłaceniu zamówienia. PDF, ZIP, EPUB, MP3, M4A lub TXT; maksymalnie 25 MB. Dla produktu wyłącznie do pobrania odznacz powyżej <strong>Wymaga wysyłki</strong>.',
+  'adminProducts.form.removeAttachment': 'Usuń załącznik z przyszłych zakupów',
+  'adminProducts.form.image': 'Obraz',
+  'adminProducts.form.categories': 'Kategorie',
+  'adminProducts.form.active': 'Aktywny (widoczny w sklepie)',
+  'adminProducts.form.cancel': 'Anuluj',
+
+  // Product form validation (src/features/products/form.ts).
+  'adminProducts.validation.nameRequired': 'Nazwa jest wymagana.',
+  'adminProducts.validation.priceInvalid': 'Cena musi być liczbą nieujemną.',
+  'adminProducts.validation.stockInvalid': 'Stan magazynowy musi być nieujemną liczbą całkowitą.',
+  'adminProducts.validation.weightRequired':
+    'Ten produkt wymaga wagi wysyłkowej: każda strefa dostawy wycenia według wagi, więc bez niej nie da się go kupić.',
+  'adminProducts.validation.weightNegative': 'Waga nie może być ujemna.',
+  'adminProducts.validation.weightPrecision': 'Waga ma zbyt wiele miejsc po przecinku dla jednostki {unit}.',
+  'adminProducts.validation.weightTooHeavy': 'Waga jest zbyt duża dla przesyłki paczkowej.',
+  'adminProducts.validation.weightNotNumber': 'Waga musi być liczbą.',
+
+  // Variant weights (src/features/products/variants.ts).
+  'adminProducts.variants.weightNegative': 'Wariant {n}: waga nie może być ujemna.',
+  'adminProducts.variants.weightPrecision': 'Wariant {n}: waga ma zbyt wiele miejsc po przecinku dla jednostki {unit}.',
+  'adminProducts.variants.weightTooHeavy': 'Wariant {n}: waga jest zbyt duża dla przesyłki paczkowej.',
+  'adminProducts.variants.weightNotNumber': 'Wariant {n}: waga musi być liczbą.',
+
+  // Digital deliverables (src/features/products/digitalFile.ts).
+  'adminProducts.deliverable.empty': 'Wybierz niepusty plik do udostępnienia.',
+  'adminProducts.deliverable.tooLarge': 'Plik do udostępnienia może mieć maksymalnie 25 MB.',
+  'adminProducts.deliverable.badType': 'Użyj pliku PDF, ZIP, EPUB, MP3, M4A lub zwykłego pliku tekstowego.',
+
+  // Edit product (src/pages/admin/products/[id]/edit.astro).
+  'adminProducts.edit.pageTitle': 'Edytuj {name}',
+  'adminProducts.edit.back': 'Wróć do produktów',
+  'adminProducts.edit.heading': 'Edytuj produkt',
+  'adminProducts.edit.viewOnStore': 'Zobacz w sklepie',
+  'adminProducts.edit.save': 'Zapisz zmiany',
+  'adminProducts.edit.images': 'Obrazy',
+  'adminProducts.edit.autoSave': 'Zmiany w tej sekcji zapisują się automatycznie',
+  'adminProducts.edit.addImages': 'Dodaj obrazy',
+  'adminProducts.edit.chooseFromMedia': 'Wybierz z multimediów',
+  'adminProducts.edit.moveUp': 'Przenieś wyżej',
+  'adminProducts.edit.moveDown': 'Przenieś niżej',
+  'adminProducts.edit.primaryImage': 'Obraz główny',
+  'adminProducts.edit.altPlaceholder': 'Tekst alternatywny – opisz obraz',
+  'adminProducts.edit.saveAlt': 'Zapisz',
+  'adminProducts.edit.saved': 'Zapisano',
+  'adminProducts.edit.makePrimary': 'Ustaw jako główny',
+  'adminProducts.edit.deleteImage': 'Usuń',
+  'adminProducts.edit.confirmDeleteImage': 'Usunąć ten obraz?',
+  'adminProducts.edit.options': 'Warianty i dodatki',
+  'adminProducts.edit.optionsHelp':
+    'Opcjonalnie. <strong class="font-medium text-gray-700">Warianty</strong> to opcje do wyboru z własną ceną i stanem magazynowym (np. Rozmiar) – kupujący wybiera jeden, a wariant staje się jednostką magazynową. <strong class="font-medium text-gray-700">Dodatki</strong> to zaznaczane opcje, które podnoszą cenę pozycji (np. Pakowanie na prezent) i nie mają własnego stanu magazynowego. Wszystko tutaj zapisuje się razem po kliknięciu przycisku <strong class="font-medium text-gray-700">Zapisz zmiany</strong> u góry.',
+  'adminProducts.edit.variantGroupLabel': 'Nazwa grupy wariantów',
+  'adminProducts.edit.variantGroupPlaceholder': 'np. Rozmiar, Kolor',
+  'adminProducts.edit.variants': 'Warianty',
+  'adminProducts.edit.choosePhoto': 'Wybierz zdjęcie wariantu',
+  'adminProducts.edit.addPhoto': 'Dodaj zdjęcie',
+  'adminProducts.edit.useMainPhoto': 'Użyj głównego zdjęcia produktu',
+  'adminProducts.edit.mainPhoto': 'Główne',
+  'adminProducts.edit.imageNumber': 'Obraz {n}',
+  'adminProducts.edit.addGalleryFirst': 'Najpierw dodaj obrazy do galerii',
+  'adminProducts.edit.label': 'Nazwa',
+  'adminProducts.edit.variantPlaceholder': 'np. Duży',
+  'adminProducts.edit.price': 'Cena ({currency})',
+  'adminProducts.edit.stock': 'Stan',
+  'adminProducts.edit.sku': 'SKU',
+  'adminProducts.edit.skuPlaceholder': 'opcjonalnie',
+  'adminProducts.edit.weight': 'Waga ({unit})',
+  'adminProducts.edit.weightInherits': 'jak produkt',
+  'adminProducts.edit.weightTitle': 'Puste pole oznacza wagę produktu. Wpisz 0 dla wariantu bez wagi.',
+  'adminProducts.edit.remove': 'Usuń',
+  'adminProducts.edit.addVariant': 'Dodaj wariant',
+  'adminProducts.edit.addOns': 'Dodatki',
+  'adminProducts.edit.addOnPlaceholder': 'np. Pakowanie na prezent',
+  'adminProducts.edit.priceDelta': 'Dopłata ({currency})',
+  'adminProducts.edit.addAddOn': 'Dodaj dodatek',
+
+  // Product API errors (src/pages/api/admin/products/**).
+  'adminProducts.api.variantGone': 'Jeden z wariantów już nie istnieje – odśwież stronę i spróbuj ponownie.',
+  'adminProducts.api.addOnGone': 'Jeden z dodatków już nie istnieje – odśwież stronę i spróbuj ponownie.',
+  'adminProducts.api.variantPhotoGone':
+    'Jedno ze zdjęć wariantów już nie istnieje – odśwież stronę i spróbuj ponownie.',
+  'adminProducts.api.chooseImage': 'Wybierz obraz.',
+  'adminProducts.api.imageNotFound': 'Nie znaleziono obrazu.',
+  'adminProducts.api.unknownAction': 'Nieznana akcja.',
+
+  // Category list, new, and edit (src/pages/admin/categories/**).
+  'adminProducts.categories.title': 'Kategorie',
+  'adminProducts.categories.newCategory': 'Nowa kategoria',
+  'adminProducts.categories.colName': 'Nazwa',
+  'adminProducts.categories.colSlug': 'Slug',
+  'adminProducts.categories.colProducts': 'Produkty',
+  'adminProducts.categories.colActions': 'Akcje',
+  'adminProducts.categories.edit': 'Edytuj',
+  'adminProducts.categories.delete': 'Usuń',
+  'adminProducts.categories.confirmDelete':
+    'Usunąć tę kategorię? Jej podkategorie zostaną przeniesione do kategorii nadrzędnej.',
+  'adminProducts.categories.confirmDeleteLinked':
+    'Ta kategoria jest podlinkowana w nawigacji. Usunięcie jej ukryje ten link w sklepie. Jej podkategorie zostaną przeniesione do kategorii nadrzędnej. Kontynuować?',
+  'adminProducts.categories.empty': 'Brak kategorii.',
+  'adminProducts.categories.newTitle': 'Nowa kategoria',
+  'adminProducts.categories.back': 'Wróć do kategorii',
+  'adminProducts.categories.create': 'Utwórz kategorię',
+  'adminProducts.categories.editPageTitle': 'Edytuj {name}',
+  'adminProducts.categories.editHeading': 'Edytuj kategorię',
+  'adminProducts.categories.save': 'Zapisz zmiany',
+  'adminProducts.categories.parentGone': 'Ta kategoria nadrzędna już nie istnieje.',
+  'adminProducts.categories.cycle':
+    'Kategorii nie można przenieść do niej samej ani do żadnej z jej podkategorii.',
+
+  // Category form (src/features/categories/CategoryForm.astro, form.ts).
+  'adminProducts.categoryForm.name': 'Nazwa',
+  'adminProducts.categoryForm.slug': 'Slug',
+  'adminProducts.categoryForm.slugHint': '(adres URL – zostaw puste, aby utworzyć z nazwy)',
+  'adminProducts.categoryForm.slugPlaceholder': 'automatycznie-z-nazwy',
+  'adminProducts.categoryForm.parent': 'Kategoria nadrzędna',
+  'adminProducts.categoryForm.noParent': '– brak (najwyższy poziom) –',
+  'adminProducts.categoryForm.cancel': 'Anuluj',
+  'adminProducts.categoryForm.nameRequired': 'Nazwa jest wymagana.',
+  'adminProducts.categoryForm.invalidParent': 'Nieprawidłowa kategoria nadrzędna.',
+
+  // Media library (src/pages/admin/media/index.astro, src/features/media/**).
+  'adminProducts.media.title': 'Multimedia',
+  'adminProducts.media.summary': {
+    one: '{count} plik. Usunięcie pliku tutaj usuwa go wszędzie – nie jest możliwe, dopóki coś go używa.',
+    few: '{count} pliki. Usunięcie pliku tutaj usuwa go wszędzie – nie jest możliwe, dopóki coś go używa.',
+    many: '{count} plików. Usunięcie pliku tutaj usuwa go wszędzie – nie jest możliwe, dopóki coś go używa.',
+    other:
+      '{count} pliku. Usunięcie pliku tutaj usuwa go wszędzie – nie jest możliwe, dopóki coś go używa.',
+  },
+  'adminProducts.media.upload': 'Prześlij',
+  'adminProducts.media.uploadHint': 'JPEG, PNG, WebP lub GIF. Maksymalnie 5 MB na plik.',
+  'adminProducts.media.empty':
+    'Brak plików. Prześlij plik powyżej albo dodaj obraz produktu – każdy przesłany plik trafia tutaj.',
+  'adminProducts.media.sizeBytes': '{size} B',
+  'adminProducts.media.sizeKilobytes': '{size} KB',
+  'adminProducts.media.sizeMegabytes': '{size} MB',
+  'adminProducts.media.legacyImage': 'Starszy obraz',
+  'adminProducts.media.unused': 'Nieużywany',
+  'adminProducts.media.usedBy': 'Używany w: {links}',
+  'adminProducts.media.copyUrl': 'Kopiuj URL',
+  'adminProducts.media.copied': 'Skopiowano',
+  'adminProducts.media.delete': 'Usuń',
+  'adminProducts.media.editProduct': 'Edytuj {name}',
+  'adminProducts.media.editPage': 'Edytuj stronę „{title}”',
+  'adminProducts.media.storeLogo': 'Logo sklepu',
+  'adminProducts.media.changeLogo': 'Zmień logo w Ustawieniach',
+  'adminProducts.media.usageProducts': {
+    one: '{count} produkt ({names})',
+    few: '{count} produkty ({names})',
+    many: '{count} produktów ({names})',
+    other: '{count} produktu ({names})',
+  },
+  'adminProducts.media.usagePages': {
+    one: '{count} strona ({names})',
+    few: '{count} strony ({names})',
+    many: '{count} stron ({names})',
+    other: '{count} strony ({names})',
+  },
+  'adminProducts.media.usageLogo': 'logo sklepu',
+  'adminProducts.media.usageAnd': '{first} i {second}',
+  'adminProducts.media.stillUsed': 'Plik jest nadal używany: {usage}. Najpierw usuń go stamtąd.',
+  'adminProducts.media.chooseAtLeastOne': 'Wybierz co najmniej jeden obraz.',
+  'adminProducts.media.badType': 'Obraz musi być w formacie JPEG, PNG, WebP lub GIF.',
+  'adminProducts.media.tooLarge': 'Obraz może mieć maksymalnie 5 MB.',
+  'adminProducts.media.alreadyInGallery': 'Ten obraz jest już w galerii tego produktu.',
+  'adminProducts.media.notInLibrary': 'Tego obrazu nie ma już w bibliotece multimediów.',
+
+  // Media picker dialog (src/features/media/MediaPicker.astro and its script).
+  'adminProducts.picker.trigger': 'Wybierz z multimediów',
+  'adminProducts.picker.title': 'Wybierz obraz',
+  'adminProducts.picker.close': 'Zamknij',
+  'adminProducts.picker.upload': 'Prześlij',
+  'adminProducts.picker.loading': 'Ładowanie…',
+  'adminProducts.picker.previous': 'Poprzednie',
+  'adminProducts.picker.next': 'Następne',
+  'adminProducts.picker.noImages': 'Brak obrazów.',
+  'adminProducts.picker.count': '{from}–{to} z {total}',
+  'adminProducts.picker.chooseFileFirst': 'Najpierw wybierz plik.',
+  'adminProducts.picker.uploadFailed': 'Przesyłanie nie powiodło się.',
+  'adminProducts.picker.loadFailed': 'Nie udało się wczytać multimediów.',
+  'adminProducts.picker.listFailed': 'Nie udało się pobrać listy multimediów ({status})',
+
+  // Semantic search reindex (src/pages/api/admin/search/reindex.ts).
+  'adminProducts.reindex.searchOff':
+    'Wyszukiwanie semantyczne jest wyłączone – najpierw włącz je w Ustawieniach.',
+  'adminProducts.reindex.unavailable':
+    'Wyszukiwanie semantyczne jest niedostępne – najpierw dodaj bindingi AI i VECTORIZE.',
+  'adminProducts.reindex.done': {
+    one: 'Przeindeksowano {count} produkt w indeksie wyszukiwania semantycznego.',
+    few: 'Przeindeksowano {count} produkty w indeksie wyszukiwania semantycznego.',
+    many: 'Przeindeksowano {count} produktów w indeksie wyszukiwania semantycznego.',
+    other: 'Przeindeksowano {count} produktu w indeksie wyszukiwania semantycznego.',
+  },
+  'adminProducts.reindex.progress': {
+    one: 'Przeindeksowano {processed} z {count} produktu. Kontynuuj, aby przetworzyć kolejną partię.',
+    few: 'Przeindeksowano {processed} z {count} produktów. Kontynuuj, aby przetworzyć kolejną partię.',
+    many: 'Przeindeksowano {processed} z {count} produktów. Kontynuuj, aby przetworzyć kolejną partię.',
+    other: 'Przeindeksowano {processed} z {count} produktu. Kontynuuj, aby przetworzyć kolejną partię.',
+  },
+  'adminProducts.reindex.failed': 'Reindeksacja nie powiodła się: {error}',
+} satisfies Catalog;
