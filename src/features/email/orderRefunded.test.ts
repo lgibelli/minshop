@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { orderRefundedEmail } from './orderConfirmation';
 import type { Order } from '../orders/db';
+
+// The builders default to the STORE's language (store.config.ts `locale`). Pin
+// English so these assertions hold in a store configured for any locale.
+vi.mock('../../i18n/index.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../i18n/index.ts')>();
+  return { ...actual, storeI18n: () => actual.enI18n };
+});
 
 // A refunded order must read back in the currency it was CHARGED in. The store's
 // current currency is irrelevant — an order taken in EUR before a switch to USD

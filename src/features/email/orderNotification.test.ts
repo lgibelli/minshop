@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Order } from '../orders/db';
 import { orderNotificationEmail } from './orderConfirmation';
+
+// The builders default to the STORE's language (store.config.ts `locale`). Pin
+// English so these assertions hold in a store configured for any locale.
+vi.mock('../../i18n/index.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../i18n/index.ts')>();
+  return { ...actual, storeI18n: () => actual.enI18n };
+});
 
 const order = (overrides: Partial<Order> = {}): Order =>
   ({
